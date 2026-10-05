@@ -1,0 +1,431 @@
+import { Button, Slider, LineEdit, ScrollView } from "std-widgets.slint";
+
+export struct TrackData {
+    video_id: string,
+    title: string,
+    artist: string,
+    album: string,
+    duration_text: string,
+    artwork_url: string,
+}
+
+export component AppWindow inherits Window {
+    title: "Cremeplay (100% Pure Native Rust)";
+    preferred-width: 1200px;
+    preferred-height: 780px;
+    min-width: 750px;
+    min-height: 500px;
+    background: #030303;
+
+    // Callbacks to Rust
+    callback search(string);
+    callback play_track(TrackData);
+    callback toggle_play();
+    callback seek(float);
+    callback set_volume(float);
+    callback login_clicked();
+    callback load_home();
+    callback load_liked();
+
+    // Properties managed by Rust
+    in property <[TrackData]> tracks: [];
+    in property <string> view_title: "Quick Picks";
+    in property <string> current_title: "Ready to Play";
+    in property <string> current_artist: "Select a track to start";
+    in property <string> current_time_text: "0:00";
+    in property <string> duration_text: "0:00";
+    in property <float> progress_pct: 0.0;
+    in property <bool> is_playing: false;
+    in property <string> user_name: "Sign In";
+    in property <bool> is_logged_in: false;
+    in property <float> current_volume: 1.0;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // --- Top Bar ---
+        Rectangle {
+            height: 64px;
+            background: #0d0d0d;
+
+            HorizontalLayout {
+                padding-left: 24px;
+                padding-right: 24px;
+                spacing: 20px;
+                alignment: center;
+
+                // Logo
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: center;
+
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 12px;
+                        background: #ff0000;
+                        Text {
+                            text: "▶";
+                            color: #ffffff;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "Music";
+                        color: #ffffff;
+                        font-size: 20px;
+                        font-weight: 800;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        background: #ff0033;
+                        border-radius: 4px;
+                        height: 18px;
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            Text {
+                                text: "PURE RUST";
+                                color: #ffffff;
+                                font-size: 9px;
+                                font-weight: 800;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Search Bar
+                search_input := LineEdit {
+                    placeholder-text: "Search songs, albums, artists...";
+                    horizontal-stretch: 1;
+                    accepted(text) => {
+                        root.search(text);
+                    }
+                }
+
+                // Google Sign-in / User Profile
+                Rectangle {
+                    width: 120px;
+                    height: 36px;
+                    border-radius: 18px;
+                    background: root.is_logged_in ? #1e1e1e : #262626;
+                    border-width: 1px;
+                    border-color: #333333;
+
+                    TouchArea {
+                        clicked => {
+                            root.login_clicked();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: root.user_name;
+                            color: #ffffff;
+                            font-size: 13px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Center Workspace (Sidebar + Content) ---
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+
+            // Sidebar
+            Rectangle {
+                width: 200px;
+                background: #050505;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+                    alignment: start;
+
+                    // Home button
+                    Rectangle {
+                        height: 40px;
+                        border-radius: 8px;
+                        background: nav_home_touch.has-hover ? #1f1f1f : transparent;
+                        nav_home_touch := TouchArea {
+                            clicked => { root.load_home(); }
+                        }
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            spacing: 12px;
+                            alignment: start;
+                            Text { text: "🏠"; font-size: 16px; vertical-alignment: center; }
+                            Text { text: "Home"; color: #ffffff; font-size: 14px; font-weight: 600; vertical-alignment: center; }
+                        }
+                    }
+
+                    // Liked Music button
+                    Rectangle {
+                        height: 40px;
+                        border-radius: 8px;
+                        background: nav_liked_touch.has-hover ? #1f1f1f : transparent;
+                        nav_liked_touch := TouchArea {
+                            clicked => { root.load_liked(); }
+                        }
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            spacing: 12px;
+                            alignment: start;
+                            Text { text: "❤️"; font-size: 16px; vertical-alignment: center; }
+                            Text { text: "Liked Music"; color: #ffffff; font-size: 14px; font-weight: 600; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+
+            // Main Content Area
+            Rectangle {
+                background: #030303;
+                horizontal-stretch: 1;
+
+                VerticalLayout {
+                    padding: 24px;
+                    spacing: 16px;
+
+                    // Header title
+                    Text {
+                        text: root.view_title;
+                        color: #ffffff;
+                        font-size: 26px;
+                        font-weight: 800;
+                    }
+
+                    // Track List ScrollView
+                    ScrollView {
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            spacing: 4px;
+
+                            for track[index] in root.tracks: Rectangle {
+                                height: 56px;
+                                border-radius: 8px;
+                                background: item_touch.has-hover ? #1a1a1a : transparent;
+
+                                item_touch := TouchArea {
+                                    clicked => {
+                                        root.play_track(track);
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    padding-left: 16px;
+                                    padding-right: 16px;
+                                    spacing: 16px;
+                                    alignment: center;
+
+                                    // Index / Play symbol
+                                    Text {
+                                        width: 24px;
+                                        text: item_touch.has-hover ? "▶" : (index + 1);
+                                        color: item_touch.has-hover ? #ff0000 : #888888;
+                                        font-size: 13px;
+                                        vertical-alignment: center;
+                                        horizontal-alignment: center;
+                                    }
+
+                                    // Title & Artist
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        alignment: center;
+                                        spacing: 2px;
+
+                                        Text {
+                                            text: track.title;
+                                            color: #ffffff;
+                                            font-size: 15px;
+                                            font-weight: 600;
+                                            overflow: elide;
+                                        }
+
+                                        Text {
+                                            text: track.artist;
+                                            color: #aaaaaa;
+                                            font-size: 13px;
+                                            overflow: elide;
+                                        }
+                                    }
+
+                                    // Duration
+                                    Text {
+                                        text: track.duration_text;
+                                        color: #888888;
+                                        font-size: 13px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Bottom Native Player Bar ---
+        Rectangle {
+            height: 76px;
+            background: #181818;
+
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                alignment: center;
+                spacing: 24px;
+
+                // Left track info
+                HorizontalLayout {
+                    width: 280px;
+                    spacing: 14px;
+                    alignment: start;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.current_title;
+                            color: #ffffff;
+                            font-size: 14px;
+                            font-weight: 700;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: root.current_artist;
+                            color: #aaaaaa;
+                            font-size: 12px;
+                            overflow: elide;
+                        }
+                    }
+                }
+
+                // Center playback controls & seekbar
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 6px;
+
+                    // Play / Pause button
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 16px;
+
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 18px;
+                            background: #ffffff;
+
+                            TouchArea {
+                                clicked => {
+                                    root.toggle_play();
+                                }
+                            }
+
+                            Text {
+                                text: root.is_playing ? "❚❚" : "▶";
+                                color: #000000;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Progress bar
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: center;
+
+                        Text {
+                            text: root.current_time_text;
+                            color: #888888;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+
+                        // Seek Slider
+                        seek_slider := Slider {
+                            horizontal-stretch: 1;
+                            minimum: 0.0;
+                            maximum: 100.0;
+                            value: root.progress_pct;
+                            changed(val) => {
+                                root.seek(val);
+                            }
+                        }
+
+                        Text {
+                            text: root.duration_text;
+                            color: #888888;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Right: Volume & SponsorBlock Badge
+                HorizontalLayout {
+                    width: 240px;
+                    alignment: end;
+                    spacing: 12px;
+
+                    Rectangle {
+                        background: #003311;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: #00aa33;
+                        height: 22px;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            Text {
+                                text: "SponsorBlock ON";
+                                color: #00ff55;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "🔊";
+                        font-size: 14px;
+                        vertical-alignment: center;
+                    }
+
+                    Slider {
+                        width: 80px;
+                        minimum: 0.0;
+                        maximum: 1.0;
+                        value: root.current_volume;
+                        changed(val) => {
+                            root.set_volume(val);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

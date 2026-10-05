@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+target/
+frontend/dist/
+src-tauri/target/
+
+# Tauri generated
+src-tauri/gen/schemas/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+*.tsbuildinfo

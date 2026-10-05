@@ -1,0 +1,34 @@
+[package]
+name = "cremeplay"
+version = "0.1.0"
+description = "Ultra-fast, debloated YouTube Music desktop client in Tauri v2 and Rust"
+authors = ["asheohto"]
+license = "MIT"
+repository = "https://github.com/asheohto/cremeplay"
+edition = "2024"
+rust-version = "1.90"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "cremeplay_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+slint-build = "1.16.1"
+tauri-build = { version = "2.7.1", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.1", features = ["tray-icon", "image-png"] }
+tauri-plugin-log = "2"
+discord-rich-presence = "1.1.0"
+tauri-plugin-single-instance = "2.5.2"
+tauri-plugin-global-shortcut = "2.4.0"
+rodio = "0.22.2"
+reqwest = { version = "0.13.5", features = ["json", "stream"] }
+tokio = { version = "1.53.2", features = ["time", "macros", "sync"] }
+sha1 = "0.11.0"
+slint = "1.16.1"

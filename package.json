@@ -1,0 +1,15 @@
+{
+  "name": "cremeplay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "90% Native Rust YouTube Music desktop client in Tauri v2 and Rodio",
+  "scripts": {
+    "dev:frontend": "pnpm --filter cremeplay-frontend dev",
+    "build:frontend": "pnpm --filter cremeplay-frontend build",
+    "dev": "pnpm build:frontend && tauri dev",
+    "build": "pnpm build:frontend && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1"
+  }
+}
