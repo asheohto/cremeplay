@@ -5,7 +5,7 @@
 
 use crate::innertube::TrackItem;
 use crate::sponsorblock::{SponsorBlockClient, SponsorSegment};
-use log::{error, info};
+use log::info;
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
@@ -41,17 +41,9 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new() -> Self {
-        let sink = match DeviceSinkBuilder::open_default_sink() {
-            Ok(s) => Some(s),
-            Err(e) => {
-                error!("[AudioPlayer] Failed to open default audio output: {:?}", e);
-                None
-            }
-        };
-
         Self {
             player: Arc::new(Mutex::new(None)),
-            device_sink: Arc::new(Mutex::new(sink)),
+            device_sink: Arc::new(Mutex::new(None)), // Lazily opened only if native stream decoding is used
             current_track: Arc::new(Mutex::new(None)),
             is_playing: Arc::new(AtomicBool::new(false)),
             playback_start_instant: Arc::new(Mutex::new(None)),
@@ -136,10 +128,14 @@ impl AudioPlayer {
         let source = Decoder::try_from(cursor)
             .map_err(|e| format!("Audio decode error: {:?}", e))?;
 
-        let sink_guard = self.device_sink.lock().unwrap();
-        let sink = sink_guard
-            .as_ref()
-            .ok_or_else(|| "No audio output device available".to_string())?;
+        let mut sink_guard = self.device_sink.lock().unwrap();
+        if sink_guard.is_none() {
+            match DeviceSinkBuilder::open_default_sink() {
+                Ok(s) => *sink_guard = Some(s),
+                Err(e) => return Err(format!("No audio output device available: {:?}", e)),
+            }
+        }
+        let sink = sink_guard.as_ref().unwrap();
 
         let new_player = Player::connect_new(&sink.mixer());
         let vol = *self.volume.lock().unwrap();

@@ -349,9 +349,27 @@ pub fn label_audio_sessions_as_cremeplay() {
     }
 
     let display_name: Vec<u16> = "Cremeplay\0".encode_utf16().collect();
+
+    // 1. Ensure dedicated cremeplay.ico exists in %LOCALAPPDATA%\com.cremeplay.desktop\
+    let ico_path_wide: Option<Vec<u16>> = (|| {
+        let local_app = std::env::var("LOCALAPPDATA").ok()?;
+        let dir = std::path::PathBuf::from(local_app).join("com.cremeplay.desktop");
+        let _ = std::fs::create_dir_all(&dir);
+        let ico_file = dir.join("cremeplay.ico");
+        if !ico_file.exists() {
+            let ico_bytes = include_bytes!("../icons/cremeplay.ico");
+            let _ = std::fs::write(&ico_file, ico_bytes);
+        }
+        if ico_file.exists() {
+            Some(format!("{}\0", ico_file.display()).encode_utf16().collect())
+        } else {
+            None
+        }
+    })();
+
     let exe_icon: Vec<u16> = std::env::current_exe()
         .ok()
-        .map(|p| format!("{},0\0", p.display()).encode_utf16().collect())
+        .map(|p| format!("@{},-1\0", p.display()).encode_utf16().collect())
         .unwrap_or_else(|| "Cremeplay\0".encode_utf16().collect());
 
     unsafe {
@@ -368,58 +386,66 @@ pub fn label_audio_sessions_as_cremeplay() {
 
         if hr >= 0 && !enumerator.is_null() {
             let enum_vtbl = *(enumerator as *mut *mut IMMDeviceEnumeratorVtbl);
-            let mut device: *mut c_void = std::ptr::null_mut();
-            let hr_dev = ((*enum_vtbl).get_default_audio_endpoint)(enumerator, 0, 1, &mut device);
 
-            if hr_dev >= 0 && !device.is_null() {
-                let dev_vtbl = *(device as *mut *mut IMMDeviceVtbl);
-                let mut session_mgr: *mut c_void = std::ptr::null_mut();
-                let hr_mgr = ((*dev_vtbl).activate)(
-                    device,
-                    &IID_IAUDIO_SESSION_MANAGER2,
-                    1, // CLSCTX_INPROC_SERVER
-                    std::ptr::null(),
-                    &mut session_mgr,
-                );
+            // Iterate over both eConsole (0) and eMultimedia (1) endpoints
+            for role in [0, 1] {
+                let mut device: *mut c_void = std::ptr::null_mut();
+                let hr_dev = ((*enum_vtbl).get_default_audio_endpoint)(enumerator, 0, role, &mut device);
 
-                if hr_mgr >= 0 && !session_mgr.is_null() {
-                    let mgr_vtbl = *(session_mgr as *mut *mut IAudioSessionManager2Vtbl);
-                    let mut session_enum: *mut c_void = std::ptr::null_mut();
-                    let hr_enum = ((*mgr_vtbl).get_session_enumerator)(session_mgr, &mut session_enum);
+                if hr_dev >= 0 && !device.is_null() {
+                    let dev_vtbl = *(device as *mut *mut IMMDeviceVtbl);
+                    let mut session_mgr: *mut c_void = std::ptr::null_mut();
+                    let hr_mgr = ((*dev_vtbl).activate)(
+                        device,
+                        &IID_IAUDIO_SESSION_MANAGER2,
+                        1, // CLSCTX_INPROC_SERVER
+                        std::ptr::null(),
+                        &mut session_mgr,
+                    );
 
-                    if hr_enum >= 0 && !session_enum.is_null() {
-                        let sess_enum_vtbl = *(session_enum as *mut *mut IAudioSessionEnumeratorVtbl);
-                        let mut count: i32 = 0;
-                        let _ = ((*sess_enum_vtbl).get_count)(session_enum, &mut count);
+                    if hr_mgr >= 0 && !session_mgr.is_null() {
+                        let mgr_vtbl = *(session_mgr as *mut *mut IAudioSessionManager2Vtbl);
+                        let mut session_enum: *mut c_void = std::ptr::null_mut();
+                        let hr_enum = ((*mgr_vtbl).get_session_enumerator)(session_mgr, &mut session_enum);
 
-                        for i in 0..count {
-                            let mut ctrl: *mut c_void = std::ptr::null_mut();
-                            let hr_ctrl = ((*sess_enum_vtbl).get_session)(session_enum, i, &mut ctrl);
-                            if hr_ctrl >= 0 && !ctrl.is_null() {
-                                let ctrl_vtbl = *(ctrl as *mut *mut IAudioSessionControlVtbl);
-                                let mut ctrl2: *mut c_void = std::ptr::null_mut();
-                                let hr_c2 = ((*ctrl_vtbl).query_interface)(ctrl, &IID_IAUDIO_SESSION_CONTROL2, &mut ctrl2);
+                        if hr_enum >= 0 && !session_enum.is_null() {
+                            let sess_enum_vtbl = *(session_enum as *mut *mut IAudioSessionEnumeratorVtbl);
+                            let mut count: i32 = 0;
+                            let _ = ((*sess_enum_vtbl).get_count)(session_enum, &mut count);
 
-                                if hr_c2 >= 0 && !ctrl2.is_null() {
-                                    let ctrl2_vtbl = *(ctrl2 as *mut *mut IAudioSessionControl2Vtbl);
-                                    let mut pid: u32 = 0;
-                                    let hr_pid = ((*ctrl2_vtbl).get_process_id)(ctrl2, &mut pid);
+                            for i in 0..count {
+                                let mut ctrl: *mut c_void = std::ptr::null_mut();
+                                let hr_ctrl = ((*sess_enum_vtbl).get_session)(session_enum, i, &mut ctrl);
+                                if hr_ctrl >= 0 && !ctrl.is_null() {
+                                    let ctrl_vtbl = *(ctrl as *mut *mut IAudioSessionControlVtbl);
+                                    let mut ctrl2: *mut c_void = std::ptr::null_mut();
+                                    let hr_c2 = ((*ctrl_vtbl).query_interface)(ctrl, &IID_IAUDIO_SESSION_CONTROL2, &mut ctrl2);
 
-                                    if hr_pid >= 0 && pids.contains(&pid) {
-                                        let _ = ((*ctrl_vtbl).set_display_name)(ctrl, display_name.as_ptr(), std::ptr::null());
-                                        let _ = ((*ctrl_vtbl).set_icon_path)(ctrl, exe_icon.as_ptr(), std::ptr::null());
+                                    if hr_c2 >= 0 && !ctrl2.is_null() {
+                                        let ctrl2_vtbl = *(ctrl2 as *mut *mut IAudioSessionControl2Vtbl);
+                                        let mut pid: u32 = 0;
+                                        let hr_pid = ((*ctrl2_vtbl).get_process_id)(ctrl2, &mut pid);
+
+                                        if hr_pid >= 0 && pids.contains(&pid) {
+                                            let _ = ((*ctrl_vtbl).set_display_name)(ctrl, display_name.as_ptr(), std::ptr::null());
+                                            if let Some(ref ico) = ico_path_wide {
+                                                let _ = ((*ctrl_vtbl).set_icon_path)(ctrl, ico.as_ptr(), std::ptr::null());
+                                            } else {
+                                                let _ = ((*ctrl_vtbl).set_icon_path)(ctrl, exe_icon.as_ptr(), std::ptr::null());
+                                            }
+                                        }
+
+                                        let _ = ((*ctrl2_vtbl).release)(ctrl2);
                                     }
-
-                                    let _ = ((*ctrl2_vtbl).release)(ctrl2);
+                                    let _ = ((*ctrl_vtbl).release)(ctrl);
                                 }
-                                let _ = ((*ctrl_vtbl).release)(ctrl);
                             }
+                            let _ = ((*sess_enum_vtbl).release)(session_enum);
                         }
-                        let _ = ((*sess_enum_vtbl).release)(session_enum);
+                        let _ = ((*mgr_vtbl).release)(session_mgr);
                     }
-                    let _ = ((*mgr_vtbl).release)(session_mgr);
+                    let _ = ((*dev_vtbl).release)(device);
                 }
-                let _ = ((*dev_vtbl).release)(device);
             }
             let _ = ((*enum_vtbl).release)(enumerator);
         }

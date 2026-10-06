@@ -1718,6 +1718,7 @@ async function play(t: TrackItem, list: TrackItem[] = [t], idx = 0, skipRadio = 
       renderQueue();
       renderOverlayQueue();
       savePlaybackState(startSec);
+      document.title = `${t.title} • ${t.artist} - Cremeplay`;
 
       if (ytPlayer && ytReady && ytPlayer.loadVideoById) {
         try {
@@ -1858,6 +1859,9 @@ function setPlay(on: boolean) {
       if (npIconPlay && npIconPause) {
         npIconPlay.classList.toggle('hidden', on);
         npIconPause.classList.toggle('hidden', !on);
+      }
+      if (!on) {
+        document.title = 'Cremeplay';
       }
       syncTunaProgress(true);
     }

@@ -161,8 +161,10 @@ pub async fn play_track(
     state.config_mgr.record_artists_from_string(&track.artist);
 
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        crate::process_job::label_audio_sessions_as_cremeplay();
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+            crate::process_job::label_audio_sessions_as_cremeplay();
+        }
     });
 
     Ok(())
@@ -204,8 +206,10 @@ pub fn on_song_change(
     state.config_mgr.record_artists_from_string(&payload.artist);
 
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        crate::process_job::label_audio_sessions_as_cremeplay();
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+            crate::process_job::label_audio_sessions_as_cremeplay();
+        }
     });
 
     Ok(())
@@ -218,6 +222,14 @@ pub fn on_playback_state_change(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     state.tuna_mgr.update_progress(current_time, is_playing);
+    if is_playing {
+        tauri::async_runtime::spawn(async move {
+            for _ in 0..5 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+                crate::process_job::label_audio_sessions_as_cremeplay();
+            }
+        });
+    }
     Ok(())
 }
 
@@ -243,6 +255,9 @@ pub fn update_playback_progress(
         current_time,
         is_playing,
     );
+    if is_playing && (current_time as u64) % 4 == 0 {
+        crate::process_job::label_audio_sessions_as_cremeplay();
+    }
     Ok(())
 }
 
