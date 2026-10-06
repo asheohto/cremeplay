@@ -991,10 +991,69 @@ async function refreshAuth() {
   }
 }
 
+function recordTasteArtist(artistName?: string) {
+  if (!artistName) return;
+  const clean = artistName.trim();
+  if (clean.length < 2 || clean.toLowerCase() === 'unknown') return;
+
+  const parts = clean.split(/[,&]|\s+feat\.|\s+ft\./i).map(s => s.trim()).filter(s => s.length >= 2 && s.toLowerCase() !== 'unknown');
+  try {
+    let stored: string[] = JSON.parse(localStorage.getItem('cremeplay_taste_artists') || '[]');
+    if (!Array.isArray(stored)) stored = [];
+    for (const p of parts) {
+      const lower = p.toLowerCase();
+      stored = stored.filter(x => x.toLowerCase() !== lower);
+      stored.unshift(p);
+    }
+    if (stored.length > 25) stored = stored.slice(0, 25);
+    localStorage.setItem('cremeplay_taste_artists', JSON.stringify(stored));
+  } catch {}
+}
+
+function getTasteSeeds(): string[] {
+  const seeds: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (name?: string) => {
+    if (!name) return;
+    const clean = name.trim();
+    const lower = clean.toLowerCase();
+    if (clean.length >= 2 && lower !== 'unknown' && !seen.has(lower)) {
+      seen.add(lower);
+      seeds.push(clean);
+    }
+  };
+
+  // 1. Stored taste artists from recent playback
+  try {
+    const stored = JSON.parse(localStorage.getItem('cremeplay_taste_artists') || '[]');
+    if (Array.isArray(stored)) {
+      stored.forEach(add);
+    }
+  } catch {}
+
+  // 2. Currently playing / resumed queue artists
+  if (current?.artist) add(current.artist);
+  try {
+    const rawQueue = localStorage.getItem('cremeplay_resumed_queue');
+    if (rawQueue) {
+      const parsed = JSON.parse(rawQueue);
+      if (parsed.queue && Array.isArray(parsed.queue)) {
+        parsed.queue.slice(0, 10).forEach((t: TrackItem) => {
+          if (t.artist) add(t.artist);
+        });
+      }
+    }
+  } catch {}
+
+  return seeds.slice(0, 10);
+}
+
 async function loadHome() {
   msg('Loading…');
   try {
-    home = await invoke<HomeSection[]>('get_home_feed');
+    const tasteSeeds = getTasteSeeds();
+    home = await invoke<HomeSection[]>('get_home_feed', { tasteSeeds });
     renderHome(home);
   } catch {
     msg('Search above to find songs, albums and artists.');
@@ -1655,6 +1714,7 @@ async function play(t: TrackItem, list: TrackItem[] = [t], idx = 0, skipRadio = 
       qIndex = idx;
       showNow(t);
       setPlay(true);
+      recordTasteArtist(t.artist);
       renderQueue();
       renderOverlayQueue();
       savePlaybackState(startSec);

@@ -110,9 +110,8 @@ impl InnertubeClient {
         *self.cookies.lock().unwrap() = cookies;
     }
 
-    fn apply_auth_headers(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        let guard = self.cookies.lock().unwrap();
-        if let Some(cookie_str) = guard.as_ref() {
+    fn apply_auth_headers_raw(cookie_str: Option<&str>, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(cookie_str) = cookie_str {
             let mut r = req.header(COOKIE, cookie_str);
 
             if let Some(sapisid) = Self::extract_cookie(cookie_str, "SAPISID")
@@ -138,6 +137,11 @@ impl InnertubeClient {
             return r;
         }
         req
+    }
+
+    fn apply_auth_headers(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        let guard = self.cookies.lock().unwrap();
+        Self::apply_auth_headers_raw(guard.as_deref(), req)
     }
 
     fn extract_cookie<'a>(cookies: &'a str, key: &str) -> Option<&'a str> {
@@ -429,7 +433,7 @@ impl InnertubeClient {
         Ok(sections)
     }
 
-    pub async fn get_home_feed(&self) -> Result<Vec<HomeSection>, String> {
+    pub async fn get_home_feed(&self, external_taste_seeds: &[String]) -> Result<Vec<HomeSection>, String> {
         let url = "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false";
 
         let body = json!({
@@ -602,14 +606,73 @@ impl InnertubeClient {
             }
         }
 
-        // 3. "From the community" playlists section - MUST ONLY CONTAIN PLAYLISTS & BE PLACED BELOW "New releases"
+        // 3. "From the community" playlists section - SUITED TO USER TASTE & PERSONALIZATION
+        // Extract algorithmic seeds from the home feed shelves
+        let mut home_extracted_seeds = Vec::new();
+        for section in &sections {
+            let lower_title = section.title.to_lowercase();
+            if lower_title.starts_with("similar to ") {
+                let artist = section.title["similar to ".len()..].trim().to_string();
+                if !artist.is_empty() {
+                    home_extracted_seeds.push(artist);
+                }
+            } else if lower_title.contains("listen again")
+                || lower_title.contains("quick picks")
+                || lower_title.contains("favorites")
+                || lower_title.contains("mixed for you")
+            {
+                for item in section.items.iter().take(6) {
+                    if !item.artist.is_empty() && !item.artist.eq_ignore_ascii_case("unknown") {
+                        home_extracted_seeds.push(item.artist.clone());
+                    }
+                }
+            }
+        }
+
+        let mut combined_seeds = Vec::new();
+        let mut seen_seeds = std::collections::HashSet::new();
+
+        // 1. External seeds (from user's recent plays and stored taste)
+        for s in external_taste_seeds {
+            let clean = s.trim().to_string();
+            let lower = clean.to_lowercase();
+            if !clean.is_empty() && lower != "unknown" && clean.len() >= 2 && !seen_seeds.contains(&lower) {
+                seen_seeds.insert(lower);
+                combined_seeds.push(clean);
+            }
+        }
+
+        // 2. YouTube Music's algorithmic seeds from home feed
+        for s in home_extracted_seeds {
+            let clean = s.trim().to_string();
+            let lower = clean.to_lowercase();
+            if !clean.is_empty() && lower != "unknown" && clean.len() >= 2 && !seen_seeds.contains(&lower) {
+                seen_seeds.insert(lower);
+                combined_seeds.push(clean);
+            }
+        }
+
+        // 3. If still empty and authenticated, sample from liked songs
+        if combined_seeds.is_empty() {
+            if let Ok(liked) = self.get_liked_songs().await {
+                for track in liked.iter().take(10) {
+                    let clean = track.artist.trim().to_string();
+                    let lower = clean.to_lowercase();
+                    if !clean.is_empty() && lower != "unknown" && clean.len() >= 2 && !seen_seeds.contains(&lower) {
+                        seen_seeds.insert(lower);
+                        combined_seeds.push(clean);
+                    }
+                }
+            }
+        }
+
         let mut community_items = Vec::new();
         if let Some(pos) = sections.iter().position(|s| s.title.to_lowercase().contains("community")) {
             let removed = sections.remove(pos);
             community_items.extend(removed.items);
         }
 
-        if let Ok(playlists) = self.get_community_playlists().await {
+        if let Ok(playlists) = self.get_community_playlists(&combined_seeds).await {
             let mut seen_ids: std::collections::HashSet<String> = community_items.iter().map(|t| t.video_id.clone()).collect();
             for p in playlists {
                 if !seen_ids.contains(&p.video_id) {
@@ -620,7 +683,13 @@ impl InnertubeClient {
         }
 
         if !community_items.is_empty() {
-            community_items.retain(|t| t.video_id.starts_with("VL") || t.video_id.starts_with("PL") || t.artist.to_lowercase().contains("playlist"));
+            community_items.retain(|t| {
+                let is_playlist_id = t.video_id.starts_with("VLPL")
+                    || t.video_id.starts_with("PL")
+                    || (t.video_id.starts_with("VL") && !t.video_id.starts_with("VLRD") && !t.video_id.starts_with("VLOLAK"));
+                let is_community = !t.artist.to_lowercase().contains("youtube music");
+                is_playlist_id && is_community
+            });
 
             let community_section = HomeSection {
                 title: "From the community".to_string(),
@@ -644,89 +713,140 @@ impl InnertubeClient {
         Ok(sections)
     }
 
-    pub async fn get_community_playlists(&self) -> Result<Vec<TrackItem>, String> {
-        let queries = [
-            "community playlist",
-            "trending playlist",
-            "aesthetic playlist",
-            "chill vibes playlist",
-            "top hits playlist",
-        ];
+    pub async fn get_community_playlists(&self, taste_seeds: &[String]) -> Result<Vec<TrackItem>, String> {
+        let mut queries: Vec<String> = Vec::new();
 
-        let mut playlists = Vec::new();
-        let mut seen_ids = std::collections::HashSet::new();
-
-        for q in queries {
-            if playlists.len() >= 48 {
-                break;
+        if !taste_seeds.is_empty() {
+            for seed in taste_seeds.iter().take(4) {
+                queries.push(format!("{} playlist", seed));
             }
+            if let Some(top_seed) = taste_seeds.first() {
+                queries.push(format!("{} vibe playlist", top_seed));
+            }
+            if queries.len() < 5 {
+                queries.push("aesthetic vibes playlist".to_string());
+            }
+            if queries.len() < 6 {
+                queries.push("chill vibes playlist".to_string());
+            }
+        } else {
+            queries = vec![
+                "community playlist".to_string(),
+                "trending playlist".to_string(),
+                "aesthetic playlist".to_string(),
+                "chill vibes playlist".to_string(),
+                "top hits playlist".to_string(),
+            ];
+        }
 
-            let url = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false";
-            let body = json!({
-                "context": {
-                    "client": {
-                        "clientName": "WEB_REMIX",
-                        "clientVersion": "1.20240101.01.00",
-                        "hl": "en",
-                        "gl": "US"
+        let cookie_val = self.cookies.lock().unwrap().clone();
+
+        let tasks = queries.iter().map(|q| {
+            let client = self.client.clone();
+            let c_val = cookie_val.clone();
+            let query = q.clone();
+            async move {
+                Self::fetch_single_community_query(&client, c_val.as_deref(), &query).await
+            }
+        });
+
+        let results_by_query = futures_util::future::join_all(tasks).await;
+
+        let mut interleaved_playlists = Vec::new();
+        let mut seen_ids = std::collections::HashSet::new();
+        let max_items = results_by_query.iter().map(|q| q.len()).max().unwrap_or(0);
+
+        for i in 0..max_items {
+            for query_items in &results_by_query {
+                if i < query_items.len() {
+                    let item = &query_items[i];
+                    if !seen_ids.contains(&item.video_id) {
+                        seen_ids.insert(item.video_id.clone());
+                        interleaved_playlists.push(item.clone());
+                        if interleaved_playlists.len() >= 48 {
+                            return Ok(interleaved_playlists);
+                        }
                     }
-                },
-                "query": q
-            });
+                }
+            }
+        }
 
-            let req = self.client.post(url).json(&body);
-            let req = self.apply_auth_headers(req);
+        Ok(interleaved_playlists)
+    }
 
-            if let Ok(res) = req.send().await {
-                if let Ok(val) = res.json::<Value>().await {
-                    let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
-                        ["content"]["sectionListRenderer"]["contents"]
-                        .as_array();
+    async fn fetch_single_community_query(
+        client: &reqwest::Client,
+        cookie_str: Option<&str>,
+        query: &str,
+    ) -> Vec<TrackItem> {
+        let url = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false";
+        let body = json!({
+            "context": {
+                "client": {
+                    "clientName": "WEB_REMIX",
+                    "clientVersion": "1.20240101.01.00",
+                    "hl": "en",
+                    "gl": "US"
+                }
+            },
+            "query": query
+        });
 
-                    if let Some(sections) = sections {
-                        for section in sections {
-                            let items = section["itemSectionRenderer"]["contents"].as_array()
-                                .or_else(|| section["musicShelfRenderer"]["contents"].as_array());
-                            if let Some(items) = items {
-                                for item in items {
-                                    let r = &item["musicResponsiveListItemRenderer"];
-                                    if !r.is_object() {
-                                        continue;
-                                    }
+        let req = client.post(url).json(&body);
+        let req = Self::apply_auth_headers_raw(cookie_str, req);
 
-                                    let browse_id = r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
-                                        .or_else(|| {
-                                            r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
-                                        })
-                                        .unwrap_or("");
+        let mut items_out = Vec::new();
+        if let Ok(res) = req.send().await {
+            if let Ok(val) = res.json::<Value>().await {
+                let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
+                    ["content"]["sectionListRenderer"]["contents"]
+                    .as_array();
 
-                                    let subtitle = r["flexColumns"][1]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
+                if let Some(sections) = sections {
+                    for section in sections {
+                        let items = section["itemSectionRenderer"]["contents"].as_array()
+                            .or_else(|| section["musicShelfRenderer"]["contents"].as_array());
+                        if let Some(items) = items {
+                            for item in items {
+                                let r = &item["musicResponsiveListItemRenderer"];
+                                if !r.is_object() {
+                                    continue;
+                                }
+
+                                let browse_id = r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
+                                    .or_else(|| {
+                                        r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
+                                    })
+                                    .unwrap_or("");
+
+                                let subtitle = r["flexColumns"][1]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
+                                    .as_array()
+                                    .map(|arr| arr.iter().filter_map(|x| x["text"].as_str()).collect::<Vec<_>>().join(""))
+                                    .unwrap_or_default();
+
+                                let is_community = (browse_id.starts_with("VLPL")
+                                    || browse_id.starts_with("PL")
+                                    || (browse_id.starts_with("VL") && !browse_id.starts_with("VLRD") && !browse_id.starts_with("VLOLAK")))
+                                    && !subtitle.to_lowercase().contains("youtube music");
+
+                                if is_community && !browse_id.is_empty() {
+                                    let title = r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["text"].as_str().unwrap_or("Community Playlist").to_string();
+                                    let artwork_url = r["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
                                         .as_array()
-                                        .map(|arr| arr.iter().filter_map(|x| x["text"].as_str()).collect::<Vec<_>>().join(""))
-                                        .unwrap_or_default();
+                                        .and_then(|t| t.last())
+                                        .and_then(|t| t["url"].as_str())
+                                        .unwrap_or("")
+                                        .to_string();
 
-                                    let is_playlist = browse_id.starts_with("VL") || browse_id.starts_with("PL");
-
-                                    if is_playlist && !browse_id.is_empty() && !seen_ids.contains(browse_id) {
-                                        seen_ids.insert(browse_id.to_string());
-                                        let title = r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["text"].as_str().unwrap_or("Community Playlist").to_string();
-                                        let artwork_url = r["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
-                                            .as_array()
-                                            .and_then(|t| t.last())
-                                            .and_then(|t| t["url"].as_str())
-                                            .unwrap_or("")
-                                            .to_string();
-
-                                        playlists.push(TrackItem {
-                                            video_id: browse_id.to_string(),
-                                            title,
-                                            artist: if subtitle.is_empty() { "Playlist".to_string() } else { subtitle },
-                                            album: String::new(),
-                                            duration: 0.0,
-                                            duration_text: String::new(),
-                                            artwork_url,
-                                        });
-                                    }
+                                    items_out.push(TrackItem {
+                                        video_id: browse_id.to_string(),
+                                        title,
+                                        artist: if subtitle.is_empty() { "Playlist".to_string() } else { subtitle },
+                                        album: String::new(),
+                                        duration: 0.0,
+                                        duration_text: String::new(),
+                                        artwork_url,
+                                    });
                                 }
                             }
                         }
@@ -735,7 +855,7 @@ impl InnertubeClient {
             }
         }
 
-        Ok(playlists)
+        items_out
     }
 
     pub async fn get_liked_songs(&self) -> Result<Vec<TrackItem>, String> {

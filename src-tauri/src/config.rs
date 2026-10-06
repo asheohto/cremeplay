@@ -17,6 +17,8 @@ pub struct AppConfig {
     pub auth_cookies: Option<String>,
     pub user_name: Option<String>,
     pub user_avatar: Option<String>,
+    #[serde(default)]
+    pub taste_artists: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -35,6 +37,7 @@ impl Default for AppConfig {
             auth_cookies: None,
             user_name: None,
             user_avatar: None,
+            taste_artists: Vec::new(),
         }
     }
 }
@@ -79,6 +82,41 @@ impl ConfigManager {
                 let _ = fs::write(&self.path, data);
             }
         }
+    }
+
+    pub fn record_artists_from_string(&self, artist_str: &str) {
+        let clean = artist_str.trim();
+        if clean.is_empty() || clean.eq_ignore_ascii_case("unknown") {
+            return;
+        }
+
+        let lower = clean.to_lowercase();
+        let main = if let Some(idx) = lower.find(" feat.") {
+            &clean[..idx]
+        } else if let Some(idx) = lower.find(" ft.") {
+            &clean[..idx]
+        } else {
+            clean
+        };
+
+        let parts: Vec<&str> = main.split(&[',', '&'][..]).map(|s| s.trim()).filter(|s| s.len() >= 2).collect();
+        if parts.is_empty() {
+            return;
+        }
+
+        let updated = {
+            let mut cfg = self.config.lock().unwrap();
+            for part in parts {
+                if part.eq_ignore_ascii_case("unknown") {
+                    continue;
+                }
+                cfg.taste_artists.retain(|a| !a.eq_ignore_ascii_case(part));
+                cfg.taste_artists.insert(0, part.to_string());
+            }
+            cfg.taste_artists.truncate(25);
+            cfg.clone()
+        };
+        self.save(updated);
     }
 }
 

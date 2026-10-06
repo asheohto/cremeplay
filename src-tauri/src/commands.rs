@@ -44,9 +44,36 @@ pub async fn get_search_suggestions(
 }
 
 #[tauri::command]
-pub async fn get_home_feed(state: State<'_, AppState>) -> Result<Vec<HomeSection>, String> {
+pub async fn get_home_feed(
+    taste_seeds: Option<Vec<String>>,
+    state: State<'_, AppState>,
+) -> Result<Vec<HomeSection>, String> {
     info!("[Command] Fetching home feed");
-    state.innertube.get_home_feed().await
+    let mut combined_seeds = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    if let Some(seeds) = taste_seeds {
+        for s in seeds {
+            let clean = s.trim().to_string();
+            let lower = clean.to_lowercase();
+            if !clean.is_empty() && lower != "unknown" && clean.len() >= 2 && !seen.contains(&lower) {
+                seen.insert(lower);
+                combined_seeds.push(clean);
+            }
+        }
+    }
+
+    let config_artists = state.config_mgr.get().taste_artists;
+    for a in config_artists {
+        let clean = a.trim().to_string();
+        let lower = clean.to_lowercase();
+        if !clean.is_empty() && lower != "unknown" && clean.len() >= 2 && !seen.contains(&lower) {
+            seen.insert(lower);
+            combined_seeds.push(clean);
+        }
+    }
+
+    state.innertube.get_home_feed(&combined_seeds).await
 }
 
 #[tauri::command]
@@ -131,6 +158,8 @@ pub async fn play_track(
         let _ = tray.set_tooltip(Some(tooltip));
     }
 
+    state.config_mgr.record_artists_from_string(&track.artist);
+
     Ok(())
 }
 
@@ -166,6 +195,8 @@ pub fn on_song_change(
         let tooltip = format!("Cremeplay: {} - {}", payload.title, payload.artist);
         let _ = tray.set_tooltip(Some(tooltip));
     }
+
+    state.config_mgr.record_artists_from_string(&payload.artist);
     Ok(())
 }
 

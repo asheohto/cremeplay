@@ -30,3 +30,4 @@ rodio = "0.22.2"
 reqwest = { version = "0.13.5", features = ["json", "stream"] }
 tokio = { version = "1.53.2", features = ["time", "macros", "sync"] }
 sha1 = "0.11.0"
+futures-util = "0.3"
