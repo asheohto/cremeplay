@@ -3,7 +3,6 @@ mod commands;
 mod config;
 mod discord;
 mod innertube;
-pub mod native_app;
 mod process_job;
 mod sponsorblock;
 mod tray;
@@ -22,13 +21,10 @@ use discord::DiscordManager;
 use innertube::InnertubeClient;
 use log::info;
 use std::sync::Arc;
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Note: Do NOT place the host process into a Job Object before WebView2 initializes,
-    // as Chromium sandbox nested job restrictions fail with HRESULT 0x80070578 (Invalid window handle).
-    // process_job::ensure_child_process_job();
 
     // Panic Hook: write critical crashes to logs/panic.txt for instant debugging
     std::panic::set_hook(Box::new(|info| {
@@ -43,13 +39,6 @@ pub fn run() {
         let _ = std::fs::create_dir_all(&log_dir);
         let _ = std::fs::write(log_dir.join("panic.txt"), &msg);
     }));
-
-    // unsafe {
-    //     std::env::set_var(
-    //         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-    //         "--renderer-process-limit=1 ...",
-    //     );
-    // }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -103,7 +92,16 @@ pub fn run() {
                 log::error!("[Tray] Failed to initialize tray: {:?}", e);
             }
 
-            let win = app.get_webview_window("main").expect("failed to get main window");
+            let mut win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title("Cremeplay")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(500.0, 400.0);
+
+            if let Some(icon) = app.default_window_icon() {
+                win_builder = win_builder.icon(icon.clone())?;
+            }
+
+            let win = win_builder.build()?;
 
             let config_for_close = config_mgr.clone();
             let win_handle = win.clone();

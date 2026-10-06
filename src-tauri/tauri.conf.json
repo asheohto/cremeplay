@@ -13,19 +13,7 @@
     "security": {
       "csp": null
     },
-    "windows": [
-      {
-        "label": "main",
-        "title": "Cremeplay",
-        "url": "index.html",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 500,
-        "minHeight": 400,
-        "resizable": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,OptimizationGuideModelDownloading,MediaRouter,CalculateNativeWinOcclusion,InterestFeedContentSuggestions,BackForwardCache --disable-background-networking --disable-component-update --disable-sync --disable-speech-api --disable-breakpad --disable-crash-reporter --autoplay-policy=no-user-gesture-required --disk-cache-size=16777216 --media-cache-size=16777216 --js-flags=--max-old-space-size=64"
-      }
-    ]
+    "windows": []
   },
   "bundle": {
     "active": true,

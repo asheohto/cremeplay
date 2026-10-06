@@ -15,7 +15,6 @@ name = "cremeplay_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-slint-build = "1.16.1"
 tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
@@ -23,7 +22,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.12.1", features = ["tray-icon", "image-png"] }
-tauri-plugin-log = "2"
+tauri_plugin_log = { version = "2", package = "tauri-plugin-log" }
 discord-rich-presence = "1.1.0"
 tauri-plugin-single-instance = "2.5.2"
 tauri-plugin-global-shortcut = "2.4.0"
@@ -31,4 +30,3 @@ rodio = "0.22.2"
 reqwest = { version = "0.13.5", features = ["json", "stream"] }
 tokio = { version = "1.53.2", features = ["time", "macros", "sync"] }
 sha1 = "0.11.0"
-slint = "1.16.1"

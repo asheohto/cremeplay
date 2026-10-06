@@ -1918,7 +1918,7 @@ function extractColorsFromImage(imgUrl: string): Promise<ExtractedPalette> {
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (!ctx) { resolve(fallback); return; }
 
-          const size = 32;
+          const size = 48;
           canvas.width = size;
           canvas.height = size;
           ctx.drawImage(img, 0, 0, size, size);
