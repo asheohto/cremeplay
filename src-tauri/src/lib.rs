@@ -3,7 +3,7 @@ mod commands;
 mod config;
 mod discord;
 mod innertube;
-mod process_job;
+pub mod process_job;
 mod sponsorblock;
 mod tray;
 mod tuna;
@@ -104,6 +104,7 @@ pub fn run() {
                         api.prevent_close();
                         let _ = win_handle.hide();
                     } else {
+                        process_job::terminate_all_descendants();
                         app_handle_exit.exit(0);
                     }
                 }
@@ -137,6 +138,11 @@ pub fn run() {
             on_playback_state_change,
             update_playback_progress
         ])
-        .run(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                process_job::terminate_all_descendants();
+            }
+        });
 }

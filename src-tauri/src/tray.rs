@@ -46,6 +46,7 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                     }
                 }
                 "quit" => {
+                    crate::process_job::terminate_all_descendants();
                     app.exit(0);
                 }
                 _ => {}

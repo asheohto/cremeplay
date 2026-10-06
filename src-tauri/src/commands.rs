@@ -160,6 +160,11 @@ pub async fn play_track(
 
     state.config_mgr.record_artists_from_string(&track.artist);
 
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        crate::process_job::label_audio_sessions_as_cremeplay();
+    });
+
     Ok(())
 }
 
@@ -197,6 +202,12 @@ pub fn on_song_change(
     }
 
     state.config_mgr.record_artists_from_string(&payload.artist);
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        crate::process_job::label_audio_sessions_as_cremeplay();
+    });
+
     Ok(())
 }
 
