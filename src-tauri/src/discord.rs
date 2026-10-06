@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const DISCORD_CLIENT_ID: &str = "1177081335727267940";
+const CREMEPLAY_ICON_URL: &str =
+    "https://raw.githubusercontent.com/asheohto/cremeplay/main/frontend/public/cremeplay.png";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +42,10 @@ impl DiscordManager {
         } else if let Some(song) = self.last_song.lock().unwrap().clone() {
             self.update_song(&song, true, 0.0);
         }
+    }
+
+    pub fn get_last_song(&self) -> Option<SongPayload> {
+        self.last_song.lock().unwrap().clone()
     }
 
     fn ensure_connected(&self) -> bool {
@@ -82,32 +88,49 @@ impl DiscordManager {
                 &song.title
             };
 
-            let state = if !song.artist.is_empty() {
-                &song.artist
+            let artist_display = if !song.artist.is_empty() {
+                format!("by {}", song.artist)
             } else {
-                "YouTube Music"
+                "Cremeplay".to_string()
             };
 
             let mut act = activity::Activity::new()
+                .activity_type(activity::ActivityType::Listening)
+                .name("Cremeplay")
                 .details(details)
-                .state(state);
+                .state(&artist_display);
 
-            // Large album image or fallback
+            let album_text = if !song.album.is_empty() {
+                &song.album
+            } else {
+                "Cremeplay"
+            };
+
+            let large_img = if !song.artwork_url.is_empty() {
+                &song.artwork_url
+            } else {
+                CREMEPLAY_ICON_URL
+            };
+
             let assets = activity::Assets::new()
-                .large_image(if !song.artwork_url.is_empty() {
-                    &song.artwork_url
-                } else {
-                    "ytm_logo"
-                })
-                .large_text(if !song.album.is_empty() {
-                    &song.album
-                } else {
-                    &song.title
-                })
-                .small_image("play")
-                .small_text("Playing");
+                .large_image(large_img)
+                .large_text(album_text)
+                .small_image(CREMEPLAY_ICON_URL)
+                .small_text("Listening on Cremeplay");
 
             act = act.assets(assets);
+
+            let mut buttons = Vec::new();
+            let watch_url;
+            if !song.video_id.is_empty() {
+                watch_url = format!("https://music.youtube.com/watch?v={}", song.video_id);
+                buttons.push(activity::Button::new("Listen on YouTube", &watch_url));
+            }
+            buttons.push(activity::Button::new(
+                "Get Cremeplay",
+                "https://github.com/asheohto/cremeplay",
+            ));
+            act = act.buttons(buttons);
 
             // Calculate timestamps
             if song.duration > 0.0 {

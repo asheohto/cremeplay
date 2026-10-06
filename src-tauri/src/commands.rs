@@ -223,12 +223,17 @@ pub fn on_playback_state_change(
 ) -> Result<(), String> {
     state.tuna_mgr.update_progress(current_time, is_playing);
     if is_playing {
+        if let Some(song) = state.discord_mgr.get_last_song() {
+            state.discord_mgr.update_song(&song, true, current_time);
+        }
         tauri::async_runtime::spawn(async move {
             for _ in 0..5 {
                 tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
                 crate::process_job::label_audio_sessions_as_cremeplay();
             }
         });
+    } else {
+        state.discord_mgr.clear_activity();
     }
     Ok(())
 }
