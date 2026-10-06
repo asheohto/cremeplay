@@ -1426,6 +1426,19 @@ async function loadLibrary() {
 function renderHome(sections: HomeSection[]) {
   if (!sections?.length) return msg('Search above to find songs, albums and artists.');
   view.innerHTML = '';
+
+  // Position "From the community" directly below "New releases"
+  const commIdx = sections.findIndex(s => /community/i.test(s.title));
+  if (commIdx !== -1) {
+    const commSection = sections.splice(commIdx, 1)[0];
+    const newRelIdx = sections.findIndex(s => /new\s+release|new\s+album|singles/i.test(s.title));
+    if (newRelIdx !== -1) {
+      sections.splice(newRelIdx + 1, 0, commSection);
+    } else {
+      sections.splice(Math.min(1, sections.length), 0, commSection);
+    }
+  }
+
   sections.forEach((sec) => {
     if (!sec.items || !sec.items.length) return;
 

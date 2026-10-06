@@ -571,7 +571,6 @@ impl InnertubeClient {
         // Ensure "Daily Discover", "Similar to [Artist]", and "From the community" are present
         let has_discover = sections.iter().any(|s| s.title.to_lowercase().contains("discover"));
         let has_similar = sections.iter().any(|s| s.title.to_lowercase().contains("similar to"));
-        let has_community = sections.iter().any(|s| s.title.to_lowercase().contains("community"));
 
         // 1. Daily Discover section
         if !has_discover {
@@ -603,15 +602,42 @@ impl InnertubeClient {
             }
         }
 
-        // 3. "From the community" playlists section - MUST ONLY CONTAIN PLAYLISTS
-        if !has_community {
-            if let Ok(playlists) = self.get_community_playlists().await {
-                if !playlists.is_empty() {
-                    sections.push(HomeSection {
-                        title: "From the community".to_string(),
-                        items: playlists.into_iter().take(12).collect(),
-                    });
+        // 3. "From the community" playlists section - MUST ONLY CONTAIN PLAYLISTS & BE PLACED BELOW "New releases"
+        let mut community_items = Vec::new();
+        if let Some(pos) = sections.iter().position(|s| s.title.to_lowercase().contains("community")) {
+            let removed = sections.remove(pos);
+            community_items.extend(removed.items);
+        }
+
+        if let Ok(playlists) = self.get_community_playlists().await {
+            let mut seen_ids: std::collections::HashSet<String> = community_items.iter().map(|t| t.video_id.clone()).collect();
+            for p in playlists {
+                if !seen_ids.contains(&p.video_id) {
+                    seen_ids.insert(p.video_id.clone());
+                    community_items.push(p);
                 }
+            }
+        }
+
+        if !community_items.is_empty() {
+            community_items.retain(|t| t.video_id.starts_with("VL") || t.video_id.starts_with("PL") || t.artist.to_lowercase().contains("playlist"));
+
+            let community_section = HomeSection {
+                title: "From the community".to_string(),
+                items: community_items,
+            };
+
+            // Place directly below "New releases" (or "New albums & singles")
+            let new_releases_idx = sections.iter().position(|s| {
+                let lower = s.title.to_lowercase();
+                lower.contains("new release") || lower.contains("new album") || lower.contains("singles")
+            });
+
+            if let Some(idx) = new_releases_idx {
+                sections.insert(idx + 1, community_section);
+            } else {
+                let insert_idx = 1.min(sections.len());
+                sections.insert(insert_idx, community_section);
             }
         }
 
@@ -619,72 +645,90 @@ impl InnertubeClient {
     }
 
     pub async fn get_community_playlists(&self) -> Result<Vec<TrackItem>, String> {
-        let url = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false";
-        let body = json!({
-            "context": {
-                "client": {
-                    "clientName": "WEB_REMIX",
-                    "clientVersion": "1.20260928.13.00",
-                    "hl": "en",
-                    "gl": "US"
-                }
-            },
-            "query": "community playlists"
-        });
-
-        let req = self.client.post(url).json(&body);
-        let req = self.apply_auth_headers(req);
-
-        let res = req.send().await.map_err(|e| e.to_string())?;
-        let val: Value = res.json().await.map_err(|e| e.to_string())?;
+        let queries = [
+            "community playlist",
+            "trending playlist",
+            "aesthetic playlist",
+            "chill vibes playlist",
+            "top hits playlist",
+        ];
 
         let mut playlists = Vec::new();
-        let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
-            ["content"]["sectionListRenderer"]["contents"]
-            .as_array();
+        let mut seen_ids = std::collections::HashSet::new();
 
-        if let Some(sections) = sections {
-            for section in sections {
-                let items = section["itemSectionRenderer"]["contents"].as_array()
-                    .or_else(|| section["musicShelfRenderer"]["contents"].as_array());
-                if let Some(items) = items {
-                    for item in items {
-                        let r = &item["musicResponsiveListItemRenderer"];
-                        if !r.is_object() {
-                            continue;
-                        }
+        for q in queries {
+            if playlists.len() >= 48 {
+                break;
+            }
 
-                        let browse_id = r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
-                            .or_else(|| {
-                                r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
-                            })
-                            .unwrap_or("");
+            let url = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false";
+            let body = json!({
+                "context": {
+                    "client": {
+                        "clientName": "WEB_REMIX",
+                        "clientVersion": "1.20240101.01.00",
+                        "hl": "en",
+                        "gl": "US"
+                    }
+                },
+                "query": q
+            });
 
-                        let subtitle = r["flexColumns"][1]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
-                            .as_array()
-                            .map(|arr| arr.iter().filter_map(|x| x["text"].as_str()).collect::<Vec<_>>().join(""))
-                            .unwrap_or_default();
+            let req = self.client.post(url).json(&body);
+            let req = self.apply_auth_headers(req);
 
-                        let is_playlist = browse_id.starts_with("VL") || browse_id.starts_with("PL") || subtitle.to_lowercase().contains("playlist");
+            if let Ok(res) = req.send().await {
+                if let Ok(val) = res.json::<Value>().await {
+                    let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
+                        ["content"]["sectionListRenderer"]["contents"]
+                        .as_array();
 
-                        if is_playlist && !browse_id.is_empty() {
-                            let title = r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["text"].as_str().unwrap_or("Community Playlist").to_string();
-                            let artwork_url = r["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
-                                .as_array()
-                                .and_then(|t| t.last())
-                                .and_then(|t| t["url"].as_str())
-                                .unwrap_or("")
-                                .to_string();
+                    if let Some(sections) = sections {
+                        for section in sections {
+                            let items = section["itemSectionRenderer"]["contents"].as_array()
+                                .or_else(|| section["musicShelfRenderer"]["contents"].as_array());
+                            if let Some(items) = items {
+                                for item in items {
+                                    let r = &item["musicResponsiveListItemRenderer"];
+                                    if !r.is_object() {
+                                        continue;
+                                    }
 
-                            playlists.push(TrackItem {
-                                video_id: browse_id.to_string(),
-                                title,
-                                artist: if subtitle.is_empty() { "Playlist".to_string() } else { subtitle },
-                                album: String::new(),
-                                duration: 0.0,
-                                duration_text: String::new(),
-                                artwork_url,
-                            });
+                                    let browse_id = r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
+                                        .or_else(|| {
+                                            r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str()
+                                        })
+                                        .unwrap_or("");
+
+                                    let subtitle = r["flexColumns"][1]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
+                                        .as_array()
+                                        .map(|arr| arr.iter().filter_map(|x| x["text"].as_str()).collect::<Vec<_>>().join(""))
+                                        .unwrap_or_default();
+
+                                    let is_playlist = browse_id.starts_with("VL") || browse_id.starts_with("PL");
+
+                                    if is_playlist && !browse_id.is_empty() && !seen_ids.contains(browse_id) {
+                                        seen_ids.insert(browse_id.to_string());
+                                        let title = r["flexColumns"][0]["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"][0]["text"].as_str().unwrap_or("Community Playlist").to_string();
+                                        let artwork_url = r["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+                                            .as_array()
+                                            .and_then(|t| t.last())
+                                            .and_then(|t| t["url"].as_str())
+                                            .unwrap_or("")
+                                            .to_string();
+
+                                        playlists.push(TrackItem {
+                                            video_id: browse_id.to_string(),
+                                            title,
+                                            artist: if subtitle.is_empty() { "Playlist".to_string() } else { subtitle },
+                                            album: String::new(),
+                                            duration: 0.0,
+                                            duration_text: String::new(),
+                                            artwork_url,
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }
