@@ -23,6 +23,10 @@ If Cremeplay helps you enjoy music without Chromium overhead, you can support th
 ---
 
 ## About
+<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/2bb34b37-802a-4cc1-a666-c67626e7e948" />
+<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/76e72bde-3df2-4146-92bb-06ca5cdb873a" />
+<img width="420" height="415" alt="image" src="https://github.com/user-attachments/assets/185bd902-f50a-4ac0-b210-199386eb3785" />
+
 
 Most YouTube Music desktop players run on Electron or heavy web wrappers. They consume 400 MB to 800 MB+ of RAM, render unnecessary video decoders and Canvas layers when you just want audio, and accumulate memory leaks over extended playback sessions.
 
