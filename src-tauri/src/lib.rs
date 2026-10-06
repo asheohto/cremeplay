@@ -21,7 +21,7 @@ use discord::DiscordManager;
 use innertube::InnertubeClient;
 use log::info;
 use std::sync::Arc;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -45,6 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
                 let _ = win.show();
                 let _ = win.set_focus();
             }
@@ -92,16 +93,7 @@ pub fn run() {
                 log::error!("[Tray] Failed to initialize tray: {:?}", e);
             }
 
-            let mut win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("Cremeplay")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(500.0, 400.0);
-
-            if let Some(icon) = app.default_window_icon() {
-                win_builder = win_builder.icon(icon.clone())?;
-            }
-
-            let win = win_builder.build()?;
+            let win = app.get_webview_window("main").expect("failed to get main window");
 
             let config_for_close = config_mgr.clone();
             let win_handle = win.clone();

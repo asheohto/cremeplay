@@ -13,7 +13,18 @@
     "security": {
       "csp": null
     },
-    "windows": []
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cremeplay",
+        "url": "index.html",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 500,
+        "minHeight": 400,
+        "resizable": true
+      }
+    ]
   },
   "bundle": {
     "active": true,
