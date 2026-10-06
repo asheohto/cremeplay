@@ -96,7 +96,8 @@ impl DiscordManager {
 
             let mut act = activity::Activity::new()
                 .activity_type(activity::ActivityType::Listening)
-                .name("Cremeplay")
+                .status_display_type(activity::StatusDisplayType::Details)
+                .name(details)
                 .details(details)
                 .state(&artist_display);
 
