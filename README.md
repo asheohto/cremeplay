@@ -12,6 +12,8 @@
 
 </div>
 
+---
+
 ## Support
 
 <a href='https://ko-fi.com/omoretti' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
@@ -19,39 +21,43 @@
 If Cremeplay helps you enjoy music without Chromium overhead, you can support the project on [Ko-fi](https://ko-fi.com/omoretti).
 
 ---
+
 ## About
+<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/2bb34b37-802a-4cc1-a666-c67626e7e948" />
+<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/76e72bde-3df2-4146-92bb-06ca5cdb873a" />
+<img width="420" height="415" alt="image" src="https://github.com/user-attachments/assets/185bd902-f50a-4ac0-b210-199386eb3785" />
 
 
 Most YouTube Music desktop players run on Electron or heavy web wrappers. They consume 400 MB to 800 MB+ of RAM, render unnecessary video decoders and Canvas layers when you just want audio, and accumulate memory leaks over extended playback sessions.
 
-**Cremeplay** is an ultra-lightweight, high-performance desktop music player built with **Tauri v2** and **Rust**. It replaces the Chromium audio pipeline with a native Rust audio engine powered by `rodio` and Symphonia, routing raw audio directly to Windows WASAPI with a minimal private working set of ~40–60 MB RAM.
+**Cremeplay** is an ultra-lightweight, high-performance desktop music player built with **Tauri v2** and **Rust**. It replaces the Chromium audio pipeline with a native Rust audio engine powered by `rodio` and Symphonia, routing raw audio directly to Windows WASAPI with a minimal private working set of ~60 MB RAM on tray and ~150 MB on open window.
 
 It interfaces directly with YouTube Music's Innertube API via asynchronous Rust services, providing authentic music discovery, radio recommendations, and library management without Google Polymer overhead or background tracking bloat.
 
 ---
-## Screenshots
-<div align="center">
-<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/2bb34b37-802a-4cc1-a666-c67626e7e948" />
-<img width="636" height="415" alt="image" src="https://github.com/user-attachments/assets/76e72bde-3df2-4146-92bb-06ca5cdb873a" />
-<img width="420" height="415" alt="image" src="https://github.com/user-attachments/assets/185bd902-f50a-4ac0-b210-199386eb3785" />
-  </div>
----
+
 ## Performance Comparison
 
 | Metric | Pear Desktop (Electron) | Webview Wrappers | **Cremeplay (Tauri v2 + Rust)** |
 | :--- | :--- | :--- | :--- |
-| **Audio Pipeline** | Chromium Web Audio | Chromium Web Audio | **Native Rust `rodio` (WASAPI)** |
-| **API Client** | Google Polymer Web App | Google Polymer Web App | **Direct Rust Innertube JSON API** |
-| **Video Decoding** | Yes (Buffers 1080p/720p video in RAM) | Yes (Buffers video stream in RAM) | **Zero (Streams pure raw audio tracks)** |
-| **Memory Footprint** | ~400 MB – 800 MB RAM | ~250 MB – 350 MB RAM | **~40 MB – 150 MB RAM** |
-| **Startup Speed** | ~3.5s | ~1.5s | **< 400ms** |
-| **Binary Size** | ~200 MB+ | ~90 MB | **~30 MB (Self-contained)** |
+| **RAM (Tray Only / Background)** | ~400 MB – 500 MB | ~180 MB – 250 MB | **~60 MB** |
+| **RAM (Open Window / Active UI)** | ~600 MB – 850 MB+ | ~250 MB – 400 MB | **~150 MB** |
+| **Process Model** | 6–10 loose Electron processes | Loose Edge WebView processes | **100% Bundled in Windows Job Object under parent `Cremeplay`** |
+| **Audio Output (Volume Mixer)** | Scattered / Electron | Unlabeled `msedgewebview2.exe` | **Native `Cremeplay` with App Icon (WASAPI)** |
+| **Installation & Distribution** | Heavy 150 MB+ Electron installer | Loose unsigned folder / wrapper | **Fast Setup Program App Installer (< 15 MB) & Portable Executable** |
+| **Audio Pipeline** | Chromium Web Audio + Video rendering | Chromium Web Audio + Video rendering | **Direct Audio Streaming + Native WASAPI** |
+| **API & Tracking Bloat** | Heavy Google Polymer Web App + trackers | Heavy Google Polymer Web App + trackers | **Direct Rust Innertube JSON API (Zero tracking overhead)** |
+| **Startup Speed** | ~3.5s – 5.0s | ~1.5s – 2.5s | **< 400ms** |
+| **Binary Size** | ~150 MB – 200 MB+ | ~80 MB – 100 MB | **< 20 MB** |
 
 ---
 
 ## Features
 
-- **Sub-60 MB Memory Footprint**: Minimal private working set using native Rust audio streaming and a featherweight UI shell.
+- **Extreme Low Memory Profile**: Consumes only **~60 MB RAM on tray** and **~150 MB RAM with open window**, backed by proactive working set trimming.
+- **Single-Process Hierarchy**: All WebView2 child and rendering processes are bundled into a Windows Job Object directly under the parent `Cremeplay` process — zero orphan processes left behind on exit.
+- **Native Audio Output Identity**: Media streams are labeled as **Cremeplay** with the official app icon in Windows Volume Mixer and Audio Settings (instead of generic `msedgewebview2.exe`).
+- **Fast Program App Installer & Portable Exe**: Available both as a fast single-click setup installer that registers Cremeplay as a native Windows Program App (Start Menu shortcut and AppUserModelID integration) and as a zero-install portable executable.
 - **Native Rust Audio Engine**: Raw audio decoded via Symphonia and streamed straight to Windows WASAPI with zero video decoding overhead.
 - **Authentic YouTube Music Algorithm**: Complete feed exploration including *Listen Again*, *Daily Discover*, *From the Community* user playlists, and *Similar To* artists. Song selections queue smart "Up Next" tracks following YouTube's live music algorithm.
 - **OBS Tuna Integration**: Built-in broadcast server on `http://127.0.0.1:1608/` serving live track metadata and album art for streaming overlays and desktop lyrics tools like [LyricReme](https://github.com/asheohto/lyricreme).
@@ -67,9 +73,9 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 
 ### 1. Download
 
-1. Go to the [Releases](https://github.com/asheohto/cremeplay/releases) page.
-2. Download the latest `cremeplay.exe`.
-3. Run `cremeplay.exe` — standalone, zero installer required, works out of the box.
+Choose your preferred format from the [Releases](https://github.com/asheohto/cremeplay/releases) page:
+- **Fast Setup Program App (`Cremeplay_x.x.x_x64-setup.exe`)**: Fast user-level installer (< 15 MB) that registers Cremeplay in Windows Start Menu, sets the AppUserModelID, and adds an uninstaller in Settings.
+- **Standalone Portable (`cremeplay.exe`)**: Zero-install standalone binary that runs immediately out of the box.
 
 ### 2. (Optional) Connect OBS Tuna or LyricReme
 
