@@ -22,10 +22,14 @@ use discord::DiscordManager;
 use innertube::InnertubeClient;
 use log::info;
 use std::sync::Arc;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Note: Do NOT place the host process into a Job Object before WebView2 initializes,
+    // as Chromium sandbox nested job restrictions fail with HRESULT 0x80070578 (Invalid window handle).
+    // process_job::ensure_child_process_job();
+
     // Panic Hook: write critical crashes to logs/panic.txt for instant debugging
     std::panic::set_hook(Box::new(|info| {
         let msg = format!("[PANIC] {}", info);
@@ -40,18 +44,12 @@ pub fn run() {
         let _ = std::fs::write(log_dir.join("panic.txt"), &msg);
     }));
 
-    // Debloated browser profile: disable telemetry, auto-play policies, and ad network hosts
-    unsafe {
-        std::env::set_var(
-            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-            "--disable-features=Translate,OptimizationGuideModelDownloading,MediaRouter \
-             --disable-extensions \
-             --disable-background-networking \
-             --disable-component-update \
-             --autoplay-policy=no-user-gesture-required \
-             --host-rules=\"MAP *googleads* 127.0.0.1, MAP *doubleclick.net* 127.0.0.1, MAP pagead2.googlesyndication.com 127.0.0.1\"",
-        );
-    }
+    // unsafe {
+    //     std::env::set_var(
+    //         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+    //         "--renderer-process-limit=1 ...",
+    //     );
+    // }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -81,11 +79,11 @@ pub fn run() {
             // Start background progress ticker for live seekbar & SponsorBlock
             player.start_progress_ticker(app.handle().clone());
 
-            // Memory Working Set Trimming: drops inactive Chromium buffer caches from private working memory
+            // Memory Working Set Trimming: drops inactive Chromium buffer caches from all processes in the tree
             tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
                 process_job::trim_process_working_set();
-                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(20));
                 loop {
                     interval.tick().await;
                     process_job::trim_process_working_set();
@@ -105,16 +103,7 @@ pub fn run() {
                 log::error!("[Tray] Failed to initialize tray: {:?}", e);
             }
 
-            let mut win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("Cremeplay")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(500.0, 400.0);
-
-            if let Some(icon) = app.default_window_icon() {
-                win_builder = win_builder.icon(icon.clone())?;
-            }
-
-            let win = win_builder.build()?;
+            let win = app.get_webview_window("main").expect("failed to get main window");
 
             let config_for_close = config_mgr.clone();
             let win_handle = win.clone();

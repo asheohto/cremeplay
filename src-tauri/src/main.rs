@@ -11,7 +11,14 @@ fn main() {
             cremeplay_lib::run();
         }
     } else {
-        // Default: The beautiful, polished Cremeplay experience with low-RAM optimizations
-        cremeplay_lib::run();
+        // Run full Tauri experience with robust fallback to 100% native UI if WebView2 initialization fails
+        let result = std::panic::catch_unwind(|| {
+            cremeplay_lib::run();
+        });
+
+        if let Err(e) = result {
+            eprintln!("[Cremeplay] Tauri WebView2 error, falling back to pure native UI: {:?}", e);
+            let _ = cremeplay_lib::native_app::run_native();
+        }
     }
 }

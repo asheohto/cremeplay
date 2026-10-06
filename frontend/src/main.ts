@@ -1918,11 +1918,13 @@ function extractColorsFromImage(imgUrl: string): Promise<ExtractedPalette> {
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (!ctx) { resolve(fallback); return; }
 
-          const size = 48;
+          const size = 32;
           canvas.width = size;
           canvas.height = size;
           ctx.drawImage(img, 0, 0, size, size);
           const data = ctx.getImageData(0, 0, size, size).data;
+          canvas.width = 0;
+          canvas.height = 0;
 
           const bins: Map<string, { r: number; g: number; b: number; count: number; sat: number; lum: number; score: number }> = new Map();
 
@@ -2038,6 +2040,10 @@ async function updateAdaptiveThemeFromArtwork(url?: string) {
 
     try {
       const pal = await extractColorsFromImage(targetUrl);
+      if (adaptiveCache.size > 50) {
+        const firstKey = adaptiveCache.keys().next().value;
+        if (firstKey) adaptiveCache.delete(firstKey);
+      }
       adaptiveCache.set(targetUrl, pal);
       if (root.getAttribute('data-theme') === 'adaptive') {
         applyExtractedPalette(pal);
@@ -2046,6 +2052,15 @@ async function updateAdaptiveThemeFromArtwork(url?: string) {
       applyExtractedPalette(getDefaultAdaptivePalette());
     }
   }
+
+  // Periodic frontend V8 garbage collection if --expose-gc is available
+  setInterval(() => {
+    if (typeof (window as any).gc === 'function') {
+      try {
+        (window as any).gc();
+      } catch {}
+    }
+  }, 30000);
 
 function renderThemeSelector() {
     const container = $('theme-selector-grid');
