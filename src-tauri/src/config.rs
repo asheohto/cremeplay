@@ -14,6 +14,20 @@ pub struct AppConfig {
     pub tuna_obs: bool,
     pub media_controls: bool,
     pub close_to_tray: bool,
+    #[serde(default = "default_false")]
+    pub autoplay: bool,
+    #[serde(default = "default_volume")]
+    pub volume: f32,
+    #[serde(default = "default_true")]
+    pub animations: bool,
+    #[serde(default = "default_true")]
+    pub romanize_lyrics: bool,
+    #[serde(default = "default_romanize_mode")]
+    pub romanize_mode: String,
+    #[serde(default = "default_false")]
+    pub enable_video_switcher: bool,
+    #[serde(default = "default_video_quality")]
+    pub video_quality: String,
     pub auth_cookies: Option<String>,
     pub user_name: Option<String>,
     pub user_avatar: Option<String>,
@@ -25,6 +39,22 @@ fn default_true() -> bool {
     true
 }
 
+fn default_false() -> bool {
+    false
+}
+
+fn default_volume() -> f32 {
+    1.0
+}
+
+fn default_romanize_mode() -> String {
+    "subtext".to_string()
+}
+
+fn default_video_quality() -> String {
+    "auto".to_string()
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -34,6 +64,13 @@ impl Default for AppConfig {
             tuna_obs: true,
             media_controls: true,
             close_to_tray: true,
+            autoplay: false,
+            volume: 1.0,
+            animations: true,
+            romanize_lyrics: true,
+            romanize_mode: "subtext".to_string(),
+            enable_video_switcher: false,
+            video_quality: "auto".to_string(),
             auth_cookies: None,
             user_name: None,
             user_avatar: None,
@@ -81,6 +118,15 @@ impl ConfigManager {
             if let Ok(data) = serde_json::to_string_pretty(&new_config) {
                 let _ = fs::write(&self.path, data);
             }
+        }
+    }
+
+    pub fn save_volume(&self, volume: f32) {
+        if let Ok(mut cfg) = self.config.lock() {
+            cfg.volume = volume;
+            let cloned = cfg.clone();
+            drop(cfg);
+            self.save(cloned);
         }
     }
 

@@ -17,6 +17,12 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.12.1
+      lyric-romanizer:
+        specifier: ^0.3.1
+        version: 0.3.1
+      transliteration:
+        specifier: ^2.6.1
+        version: 2.6.1
     devDependencies:
       typescript:
         specifier: ^5.8.0
@@ -26,6 +32,13 @@ importers:
         version: 6.4.3
 
 packages:
+
+  '@babel/runtime@7.29.10':
+    resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
+    engines: {node: '>=6.9.0'}
+
+  '@dehoist/romanize-thai@1.0.0':
+    resolution: {integrity: sha512-6SqD4vyZ48otnypLXMh901CeQetoP5ptYOaIr58N6zDqjjoN0bHszMb5d/6AXJJQf8kIvbmSWBeuDrbAWLajPQ==}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -183,6 +196,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@indic-transliteration/common_maps@1.0.6':
+    resolution: {integrity: sha512-OYX+SrpK26FjVZNphOdsQc9Ph0yFDtoWsU7INjhEhhWvGqzxF3Mqi0fF0buUsB4jpRWJe+7U+u9PO4fsTP/lfg==}
+
+  '@indic-transliteration/sanscript@1.3.3':
+    resolution: {integrity: sha512-zNGeARmQTPIlubwgEhl/JumpwTPHrdT/cNsQeCL+G67SQmjJe3qRnMIYghXiVt7+KDso/pU1Ky2ZfD/RBISfJQ==}
+
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
     engines: {node: ^22.20 || ^24.12 || >=25}
@@ -328,6 +347,19 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@romanize/korean@0.1.3':
+    resolution: {integrity: sha512-Bfxze35S7ktKqm7ge78x3v7OW/TrbPV0gcvrHuTXUeeID7mGiWWUIH/fOS9lO25N1LY+n1S9xsixtxT9KggEYg==}
+
+  '@sglkc/kuromoji@1.1.0':
+    resolution: {integrity: sha512-uKxXYUM5XNjZw0ia0yMYTI3jHSh/c1gEMNvcvS6J49B4mI+PAq8iRYPTxh2ma0RWm45LyWWrILxCJAIXpi/pww==}
+
+  '@sglkc/kuroshiro-analyzer-kuromoji@1.0.1':
+    resolution: {integrity: sha512-qWEhhmru2T6YKhOx1g6BNxxm8K0GIKyd5NY6ynrGH/lLwxNvfv2osh2PAeoSJhjloVrLe7wn/NEp/5+IoRN88A==}
+
+  '@sglkc/kuroshiro@1.0.1':
+    resolution: {integrity: sha512-pDjzQa+KHcoKas5i0nf2uxNh0cFZlgsKzvj5AHMkAF7cvKTayN+Rllb/X+S3Gz8MpMk6pV95Uyu90+iyq3w+/A==}
+    engines: {node: '>=6.5.0'}
+
   '@tauri-apps/api@2.12.1':
     resolution: {integrity: sha512-DeyFHa3wynpyoqTDikDEDGTJIq4LQ5USfolQGRmGIWT6JMADyxZBTDa5cAdT3tDg73rUXufPaCwN7aXBos4OnQ==}
 
@@ -410,6 +442,15 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
+  async@2.6.4:
+    resolution: {integrity: sha512-mzo5dfJYwAn29PeiJ0zvwTo04zj8HDJj0Mn8TD7sno7q12prdbnasKJHhkm2c1LgrhlJ0teaea8860oxi51mGA==}
+
+  cyrillic-to-translit-js@3.2.1:
+    resolution: {integrity: sha512-HFO+fx4t9J6bfeV5DUKmkzav15ktg+6LDjODj6+CRzrFil8YuzR6wRQiDI7OxwY5q4alCEP+sNEjhdQ65TIDzw==}
+
+  doublearray@0.0.2:
+    resolution: {integrity: sha512-aw55FtZzT6AmiamEj2kvmR6BuFqvYgKZUkfQ7teqVRNqD5UE0rw8IeW/3gieHNKQ5sPuDKlljWEn4bzv5+1bHw==}
+
   esbuild@0.25.12:
     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
     engines: {node: '>=18'}
@@ -424,10 +465,22 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  lodash.invert@4.3.0:
+    resolution: {integrity: sha512-3CJmOxN5y47rd+g5XjdZNcq2SorJkvlSqBwPomT094p6LZ4p7b5bUoRzYYMjwsTGWTW77z/dFZlCzeVQxBrZVg==}
+
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
+
+  lyric-romanizer@0.3.1:
+    resolution: {integrity: sha512-nyqXJOPftwFZoQM1iCeEaidfEEp2gudsXvXMNIMzWzpa4zFumFHV2blPBPCwgJ8t6/1IUHHkXi/BEjduu5Ra2Q==}
 
   nanoid@3.3.19:
     resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
@@ -440,6 +493,9 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pinyin-pro@3.29.4:
+    resolution: {integrity: sha512-SPXpDT2cHEy+d26V1RXYMlVzXN42hotFAak1fzyWPi4o2dKXb61UqD4pzxDJHwk6gbv8vQ6EfErd+hYX0Qhzug==}
 
   postcss@8.5.28:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
@@ -454,9 +510,23 @@ packages:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
+  tamil-romanizer@1.0.2:
+    resolution: {integrity: sha512-XuvrXKWc7vKVz00iqtuznMtP9IcoNVQCydazfyhhzAofOAqfDPJ46zMl+J0iIWX9dbQypFjcElK+J9PLt3LgYQ==}
+
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
+
+  to-jyutping@3.1.1:
+    resolution: {integrity: sha512-8dqSOTbYC5pBs1DQtC9olmFLhf/pzKqxMfQLRUYu1BXXtWgqyS8dSFy9mHuF0cHjgjtX86pCBvGIvKzzlVM6lw==}
+
+  toml@2.3.6:
+    resolution: {integrity: sha512-gVweAectJU3ebq//Ferr2JUY4WKSDe5N+z0FvjDncLGyHmIDoxgY/2Ie4qfEIDm4IS7OA6Rmdm7pdEEdMcV/xQ==}
+
+  transliteration@2.6.1:
+    resolution: {integrity: sha512-hJ9BhrQAOnNTbpOr1MxsNjZISkn7ppvF5TKUeFmTE1mG4ZPD/XVxF0L0LUoIUCWmQyxH0gJpVtfYLAWf298U9w==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -504,6 +574,10 @@ packages:
         optional: true
 
 snapshots:
+
+  '@babel/runtime@7.29.10': {}
+
+  '@dehoist/romanize-thai@1.0.0': {}
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -583,6 +657,13 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
+  '@indic-transliteration/common_maps@1.0.6': {}
+
+  '@indic-transliteration/sanscript@1.3.3':
+    dependencies:
+      '@indic-transliteration/common_maps': 1.0.6
+      toml: 2.3.6
+
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
@@ -661,6 +742,22 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.64.0':
     optional: true
 
+  '@romanize/korean@0.1.3': {}
+
+  '@sglkc/kuromoji@1.1.0':
+    dependencies:
+      async: 2.6.4
+      doublearray: 0.0.2
+      fflate: 0.8.3
+
+  '@sglkc/kuroshiro-analyzer-kuromoji@1.0.1':
+    dependencies:
+      '@sglkc/kuromoji': 1.1.0
+
+  '@sglkc/kuroshiro@1.0.1':
+    dependencies:
+      '@babel/runtime': 7.29.10
+
   '@tauri-apps/api@2.12.1': {}
 
   '@tauri-apps/cli-darwin-arm64@2.12.1':
@@ -712,6 +809,16 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
+  async@2.6.4:
+    dependencies:
+      lodash: 4.18.1
+
+  cyrillic-to-translit-js@3.2.1:
+    dependencies:
+      lodash.invert: 4.3.0
+
+  doublearray@0.0.2: {}
+
   esbuild@0.25.12:
     optionalDependencies:
       '@esbuild/aix-ppc64': 0.25.12
@@ -745,14 +852,35 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
+  fflate@0.8.3: {}
+
   fsevents@2.3.3:
     optional: true
+
+  lodash.invert@4.3.0: {}
+
+  lodash@4.18.1: {}
+
+  lyric-romanizer@0.3.1:
+    dependencies:
+      '@dehoist/romanize-thai': 1.0.0
+      '@indic-transliteration/sanscript': 1.3.3
+      '@romanize/korean': 0.1.3
+      '@sglkc/kuroshiro': 1.0.1
+      '@sglkc/kuroshiro-analyzer-kuromoji': 1.0.1
+      cyrillic-to-translit-js: 3.2.1
+      pinyin-pro: 3.29.4
+      tamil-romanizer: 1.0.2
+      to-jyutping: 3.1.1
+      transliteration: 2.6.1
 
   nanoid@3.3.19: {}
 
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  pinyin-pro@3.29.4: {}
 
   postcss@8.5.28:
     dependencies:
@@ -794,10 +922,18 @@ snapshots:
 
   source-map-js@1.2.2: {}
 
+  tamil-romanizer@1.0.2: {}
+
   tinyglobby@0.2.17:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
+
+  to-jyutping@3.1.1: {}
+
+  toml@2.3.6: {}
+
+  transliteration@2.6.1: {}
 
   typescript@5.9.3: {}
 

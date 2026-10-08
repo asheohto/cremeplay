@@ -1,6 +1,6 @@
 [package]
 name = "cremeplay"
-version = "0.1.0"
+version = "1.1.0"
 description = "Ultra-fast, debloated YouTube Music desktop client in Tauri v2 and Rust"
 authors = ["asheohto"]
 license = "MIT"

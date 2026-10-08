@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod discord;
 mod innertube;
+pub mod lrclib;
 pub mod process_job;
 mod sponsorblock;
 mod tray;
@@ -55,6 +56,7 @@ pub fn run() {
             let discord_mgr = Arc::new(DiscordManager::new());
             let tuna_mgr = Arc::new(tuna::TunaManager::new());
             let innertube = Arc::new(InnertubeClient::new());
+            let lrclib = Arc::new(lrclib::LrclibClient::new());
             let player = Arc::new(AudioPlayer::new());
 
             let current_config = config_mgr.get();
@@ -85,6 +87,7 @@ pub fn run() {
                 discord_mgr,
                 tuna_mgr,
                 innertube,
+                lrclib,
                 player,
             });
 

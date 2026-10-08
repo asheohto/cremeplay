@@ -5,6 +5,7 @@ use crate::innertube::{
     AccountProfile, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload,
     SidebarPlaylist, TrackItem,
 };
+use crate::lrclib::{LrclibClient, LyricsPayload};
 use crate::tuna::TunaManager;
 use log::info;
 use std::sync::Arc;
@@ -15,6 +16,7 @@ pub struct AppState {
     pub discord_mgr: Arc<DiscordManager>,
     pub tuna_mgr: Arc<TunaManager>,
     pub innertube: Arc<InnertubeClient>,
+    pub lrclib: Arc<LrclibClient>,
     pub player: Arc<AudioPlayer>,
 }
 
@@ -85,10 +87,70 @@ pub async fn get_explore_feed(state: State<'_, AppState>) -> Result<Vec<HomeSect
 #[tauri::command]
 pub async fn get_lyrics(
     video_id: String,
+    title: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    duration: Option<f64>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    info!("[Command] Fetching lyrics for {}", video_id);
-    state.innertube.get_lyrics(&video_id).await
+) -> Result<LyricsPayload, String> {
+    info!(
+        "[Command] Fetching lyrics for {} (title: {:?}, artist: {:?})",
+        video_id, title, artist
+    );
+
+    // 0. Bounded In-Memory Cache check
+    if let Some(cached) = state.lrclib.get_cached(&video_id) {
+        return Ok(cached);
+    }
+
+    // 1. Tier 1: Try LRCLIB for crowdsourced time-synced lyrics
+    if let (Some(t), Some(a)) = (title.as_deref(), artist.as_deref()) {
+        if !t.trim().is_empty() {
+            if let Some(payload) = state
+                .lrclib
+                .fetch_synced_lyrics(t, a, album.as_deref(), duration)
+                .await
+            {
+                state.lrclib.set_cached(&video_id, payload.clone());
+                return Ok(payload);
+            }
+        }
+    }
+
+    // 2. Tier 2: Try YouTube video/song Captions & ASR auto-generated captions
+    if let Some(payload) = state.innertube.get_captions_lyrics(&video_id).await {
+        state.lrclib.set_cached(&video_id, payload.clone());
+        return Ok(payload);
+    }
+
+    // 3. Tier 3: Try YouTube Music Innertube plain lyrics
+    if let Ok(plain) = state.innertube.get_lyrics(&video_id).await {
+        if !plain.trim().is_empty()
+            && !plain.starts_with("Lyrics are not available")
+            && !plain.starts_with("No lyrics found")
+        {
+            let payload = LyricsPayload {
+                synced: false,
+                source: "YouTube Music".to_string(),
+                instrumental: false,
+                lines: Vec::new(),
+                plain_lyrics: plain,
+            };
+            state.lrclib.set_cached(&video_id, payload.clone());
+            return Ok(payload);
+        }
+    }
+
+    // 4. Clean empty payload
+    let empty_payload = LyricsPayload {
+        synced: false,
+        source: "None".to_string(),
+        instrumental: false,
+        lines: Vec::new(),
+        plain_lyrics: "Lyrics are not available for this track.".to_string(),
+    };
+    state.lrclib.set_cached(&video_id, empty_payload.clone());
+    Ok(empty_payload)
 }
 
 #[tauri::command]
@@ -260,9 +322,6 @@ pub fn update_playback_progress(
         current_time,
         is_playing,
     );
-    if is_playing && (current_time as u64) % 4 == 0 {
-        crate::process_job::label_audio_sessions_as_cremeplay();
-    }
     Ok(())
 }
 
@@ -301,6 +360,7 @@ pub fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
 #[tauri::command]
 pub fn set_volume(volume: f32, state: State<'_, AppState>) -> Result<(), String> {
     state.player.set_volume(volume);
+    state.config_mgr.save_volume(volume);
     Ok(())
 }
 
@@ -310,13 +370,20 @@ pub fn get_player_status(state: State<'_, AppState>) -> Result<PlayerStatus, Str
 }
 
 #[tauri::command]
-pub fn update_settings(
+pub async fn update_settings(
     settings: AppConfig,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     state.config_mgr.save(settings.clone());
-    state.discord_mgr.set_enabled(settings.discord_rpc);
-    state.tuna_mgr.set_enabled(settings.tuna_obs);
+    let discord_mgr = state.discord_mgr.clone();
+    let tuna_mgr = state.tuna_mgr.clone();
+    let discord_rpc = settings.discord_rpc;
+    let tuna_obs = settings.tuna_obs;
+
+    tokio::task::spawn_blocking(move || {
+        discord_mgr.set_enabled(discord_rpc);
+        tuna_mgr.set_enabled(tuna_obs);
+    });
     Ok(())
 }
 

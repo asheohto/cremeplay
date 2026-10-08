@@ -1,6 +1,6 @@
 {
   "name": "cremeplay-frontend",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,11 +8,12 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.1.1"
+    "@tauri-apps/api": "^2.1.1",
+    "lyric-romanizer": "^0.3.1",
+    "transliteration": "^2.6.1"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
     "vite": "^6.2.0"
   }
 }
-

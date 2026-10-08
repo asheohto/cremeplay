@@ -35,8 +35,10 @@ impl DiscordManager {
     }
 
     pub fn set_enabled(&self, enabled: bool) {
-        let mut en = self.enabled.lock().unwrap();
-        *en = enabled;
+        {
+            let mut en = self.enabled.lock().unwrap();
+            *en = enabled;
+        }
         if !enabled {
             self.clear_activity();
         } else if let Some(song) = self.last_song.lock().unwrap().clone() {
@@ -160,8 +162,9 @@ impl DiscordManager {
 
     pub fn clear_activity(&self) {
         let mut client_lock = self.client.lock().unwrap();
-        if let Some(client) = client_lock.as_mut() {
+        if let Some(mut client) = client_lock.take() {
             let _ = client.clear_activity();
+            let _ = client.close();
         }
     }
 }

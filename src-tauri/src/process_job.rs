@@ -224,6 +224,17 @@ pub fn trim_process_working_set() {
 
 #[cfg(windows)]
 pub fn label_audio_sessions_as_cremeplay() {
+    let _ = std::thread::Builder::new()
+        .name("cremeplay-audio-session-label".into())
+        .spawn(|| {
+            let _ = std::panic::catch_unwind(|| {
+                label_audio_sessions_internal();
+            });
+        });
+}
+
+#[cfg(windows)]
+fn label_audio_sessions_internal() {
     use std::os::raw::c_void;
     type HRESULT = i32;
 
@@ -373,7 +384,8 @@ pub fn label_audio_sessions_as_cremeplay() {
         .unwrap_or_else(|| "Cremeplay\0".encode_utf16().collect());
 
     unsafe {
-        let _ = CoInitialize(std::ptr::null_mut());
+        let hr_init = CoInitialize(std::ptr::null_mut());
+        let should_uninit = hr_init >= 0;
 
         let mut enumerator: *mut c_void = std::ptr::null_mut();
         let hr = CoCreateInstance(
@@ -450,7 +462,9 @@ pub fn label_audio_sessions_as_cremeplay() {
             let _ = ((*enum_vtbl).release)(enumerator);
         }
 
-        CoUninitialize();
+        if should_uninit {
+            CoUninitialize();
+        }
     }
 }
 

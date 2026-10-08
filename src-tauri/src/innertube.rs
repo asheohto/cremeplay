@@ -576,9 +576,20 @@ impl InnertubeClient {
         let has_discover = sections.iter().any(|s| s.title.to_lowercase().contains("discover"));
         let has_similar = sections.iter().any(|s| s.title.to_lowercase().contains("similar to"));
 
-        // 1. Daily Discover section
+        // 1. Daily Discover section - PERSONALIZED TO USER TASTE
         if !has_discover {
-            if let Ok(res) = self.search("Daily Discover mix").await {
+            let discover_query = if let Some(top_seed) = external_taste_seeds.iter().find(|s| !s.trim().is_empty() && !s.eq_ignore_ascii_case("unknown")) {
+                format!("{} discover mix", top_seed)
+            } else {
+                let first_artist = sections.get(0).and_then(|s| s.items.get(0)).map(|t| t.artist.clone());
+                if let Some(art) = first_artist.filter(|a| !a.is_empty() && a != "Unknown") {
+                    format!("{} discover mix", art)
+                } else {
+                    "Daily Discover mix".to_string()
+                }
+            };
+
+            if let Ok(res) = self.search(&discover_query).await {
                 if !res.songs.is_empty() {
                     let insert_pos = 1.min(sections.len());
                     sections.insert(insert_pos, HomeSection {
@@ -1201,6 +1212,170 @@ impl InnertubeClient {
         }
 
         Ok("Lyrics are not available for this track.".to_string())
+    }
+
+    pub async fn get_captions_lyrics(&self, video_id: &str) -> Option<crate::lrclib::LyricsPayload> {
+        let player_url = "https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+        let body = json!({
+            "context": {
+                "client": {
+                    "clientName": "ANDROID",
+                    "clientVersion": "20.10.38"
+                }
+            },
+            "videoId": video_id
+        });
+
+        let res = self
+            .client
+            .post(player_url)
+            .header(
+                USER_AGENT,
+                "com.google.android.youtube/20.10.38 (Linux; U; Android 11)",
+            )
+            .json(&body)
+            .send()
+            .await
+            .ok()?;
+
+        let data: Value = res.json().await.ok()?;
+        let caption_tracks = data["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"].as_array()?;
+        if caption_tracks.is_empty() {
+            return None;
+        }
+
+        // Prioritize:
+        // 1. Manual captions in English
+        // 2. Any manual captions (non-ASR)
+        // 3. ASR auto-generated English captions
+        // 4. Any caption track
+        let chosen_track = caption_tracks
+            .iter()
+            .find(|t| {
+                let lang = t["languageCode"].as_str().unwrap_or("");
+                let kind = t["kind"].as_str().unwrap_or("");
+                kind != "asr" && (lang == "en" || lang.starts_with("en-"))
+            })
+            .or_else(|| {
+                caption_tracks.iter().find(|t| {
+                    let kind = t["kind"].as_str().unwrap_or("");
+                    kind != "asr"
+                })
+            })
+            .or_else(|| {
+                caption_tracks.iter().find(|t| {
+                    let lang = t["languageCode"].as_str().unwrap_or("");
+                    lang == "en" || lang.starts_with("en-")
+                })
+            })
+            .or_else(|| caption_tracks.first())?;
+
+        let base_url = chosen_track["baseUrl"].as_str()?;
+        let mut timedtext_url = base_url
+            .replace("&fmt=srv3", "")
+            .replace("&fmt=srv1", "")
+            .replace("&fmt=srv2", "");
+        if !timedtext_url.contains("&fmt=json3") {
+            timedtext_url.push_str("&fmt=json3");
+        }
+
+        let tt_res = self.client.get(&timedtext_url).send().await.ok()?;
+        let tt_data: Value = tt_res.json().await.ok()?;
+        let events = tt_data["events"].as_array()?;
+
+        let mut lines = Vec::new();
+        for ev in events {
+            let start_ms = ev["tStartMs"].as_f64()?;
+            let mut line_text = String::new();
+            if let Some(segs) = ev["segs"].as_array() {
+                for seg in segs {
+                    if let Some(txt) = seg["utf8"].as_str() {
+                        line_text.push_str(txt);
+                    }
+                }
+            }
+
+            if let Some(cleaned) = Self::format_caption_line(&line_text) {
+                if !cleaned.is_empty() {
+                    lines.push(crate::lrclib::LyricLine {
+                        time_sec: (start_ms / 10.0).round() / 100.0,
+                        text: cleaned,
+                    });
+                }
+            }
+        }
+
+        if lines.is_empty() {
+            return None;
+        }
+
+        lines.sort_by(|a, b| a.time_sec.partial_cmp(&b.time_sec).unwrap_or(std::cmp::Ordering::Equal));
+
+        let plain_lyrics = lines
+            .iter()
+            .map(|l| l.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        Some(crate::lrclib::LyricsPayload {
+            synced: true,
+            source: "YouTube Captions".to_string(),
+            instrumental: false,
+            lines,
+            plain_lyrics,
+        })
+    }
+
+    fn format_caption_line(raw: &str) -> Option<String> {
+        let unescaped = Self::unescape_xml_entities(raw.trim()).replace('\n', " ");
+        let trimmed = unescaped.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let lower = trimmed.to_lowercase();
+        // Standalone [music] / (music) / [musique] etc. -> music note symbol
+        if lower == "[music]"
+            || lower == "(music)"
+            || lower == "[musique]"
+            || lower == "(musique)"
+            || lower == "[música]"
+            || lower == "(música)"
+            || lower == "[♪]"
+            || lower == "(♪)"
+            || lower == "♪"
+        {
+            return Some("♪".to_string());
+        }
+
+        // When [music] appears in the same sync lyric line with other text, remove it
+        let mut cleaned = trimmed.to_string();
+        for tag in &[
+            "[music]", "[Music]", "[MUSIC]",
+            "(music)", "(Music)", "(MUSIC)",
+            "[musique]", "[Musique]",
+            "[música]", "[Música]",
+        ] {
+            cleaned = cleaned.replace(tag, "");
+        }
+
+        let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+        let final_text = collapsed.trim();
+        if final_text.is_empty() {
+            Some("♪".to_string())
+        } else {
+            Some(final_text.to_string())
+        }
+    }
+
+    fn unescape_xml_entities(input: &str) -> String {
+        input
+            .replace("&amp;", "&")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+            .replace("&quot;", "\"")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
     }
 
     pub async fn get_radio_queue(&self, video_id: &str) -> Result<Vec<TrackItem>, String> {

@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="unsafe-url" />
   <title>Cremeplay</title>
   <link rel="icon" type="image/x-icon" href="./cremeplay.ico" />
   <link rel="shortcut icon" href="./cremeplay.ico" />
@@ -282,6 +283,30 @@
           <div class="settings-section-title">Color Themes</div>
           <div class="theme-grid" id="theme-selector-grid"></div>
         </div>
+        <label class="row"><span>Autoplay on startup</span><input type="checkbox" id="set-autoplay" /></label>
+        <label class="row"><span>Smooth UI animations</span><input type="checkbox" id="set-animations" checked /></label>
+        <label class="row"><span>Enable video switcher</span><input type="checkbox" id="set-video-switcher" /></label>
+        <div class="row dropdown-row">
+          <span>Video quality</span>
+          <select id="set-video-quality" class="settings-select">
+            <option value="auto" selected>Auto (Recommended)</option>
+            <option value="hd1080">1080p (Full HD)</option>
+            <option value="hd720">720p (HD)</option>
+            <option value="large">480p</option>
+            <option value="medium">360p</option>
+            <option value="small">240p</option>
+            <option value="tiny">144p</option>
+          </select>
+        </div>
+        <div class="row dropdown-row">
+          <span>Romanized lyrics</span>
+          <select id="set-romanize-mode" class="settings-select">
+            <option value="off">Off (Disabled)</option>
+            <option value="subtext" selected>Subtext (Original main, Romanized sub)</option>
+            <option value="main">Main text (Romanized main, Original sub)</option>
+            <option value="only">Only Romanized</option>
+          </select>
+        </div>
         <label class="row"><span>Discord Rich Presence</span><input type="checkbox" id="set-discord" checked /></label>
         <label class="row"><span>SponsorBlock auto-skip</span><input type="checkbox" id="set-sponsor" checked /></label>
         <label class="row"><span>OBS Tuna stream overlay</span><input type="checkbox" id="set-tuna" checked /></label>
@@ -328,8 +353,29 @@
       <div class="np-body">
         <!-- Tab 1: Cover -->
         <div id="np-view-cover" class="np-view-panel">
-          <div class="np-cover-container">
+          <div class="np-mode-switcher-container hidden" id="np-mode-switcher-container">
+            <div class="np-mode-switcher">
+              <button id="np-mode-song" class="np-mode-btn active" title="Song mode (Cover art)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                </svg>
+                <span>Song</span>
+              </button>
+              <button id="np-mode-video" class="np-mode-btn" title="Video mode">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="3" /><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
+                </svg>
+                <span>Video</span>
+              </button>
+            </div>
+          </div>
+          <div class="np-cover-container" id="np-cover-container">
             <img id="np-artwork" class="np-artwork" alt="" />
+            <div id="np-video-wrapper" class="np-video-wrapper">
+              <div id="yt-player-container">
+                <div id="yt-player"></div>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Tab 2: Up Next -->
@@ -449,11 +495,6 @@
         </svg>
         <span>Copy song link</span>
       </div>
-    </div>
-
-    <div id="yt-player-container"
-      style="position: fixed; top: -9999px; left: -9999px; width: 200px; height: 200px; opacity: 0; pointer-events: none; z-index: -9999;">
-      <div id="yt-player"></div>
     </div>
   </div>
   <script type="module" src="./src/main.ts"></script>
