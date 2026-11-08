@@ -15,6 +15,9 @@ pub fn render(s: &AppState) -> El {
         .gap(32.0)
         .padding(32.0);
 
+    let white = rune::Color::WHITE;
+    let white_subtle = rune::Color { r: 1.0, g: 1.0, b: 1.0, a: 0.85 };
+
     // 1. Header with Profile status
     let header_title = text("Your Library").font(typo::HERO).color(t.heading);
     let profile_badge = if let Some(acc) = &s.account {
@@ -32,7 +35,7 @@ pub fn render(s: &AppState) -> El {
                     .radius(12.0)
                     .fill(t.brand)
                     .center()
-                    .child(icon(&icons::SETTINGS, 14.0).color(t.brand_text)),
+                    .child(icon(&icons::SETTINGS, 14.0).color(white)),
             )
             .child(text(&acc.name).font(typo::LABEL).color(t.heading))
     } else {
@@ -44,8 +47,8 @@ pub fn render(s: &AppState) -> El {
             .center_y()
             .gap(8.0)
             .fill(t.brand)
-            .child(icon(&icons::HEART, 16.0).color(t.brand_text))
-            .child(text("Connect Account").font(typo::LABEL).color(t.brand_text))
+            .child(icon(&icons::HEART, 16.0).color(white))
+            .child(text("Connect Account").font(typo::LABEL).color(white))
             .on_press(|s: &mut AppState| {
                 s.show_settings = true;
                 s.settings_tab = SettingsTab::Account;
@@ -79,18 +82,18 @@ pub fn render(s: &AppState) -> El {
                     el()
                         .size(80.0, 80.0)
                         .radius(16.0)
-                        .fill(t.hover)
+                        .fill(rune::Color { r: 1.0, g: 1.0, b: 1.0, a: 0.15 })
                         .center()
-                        .child(icon(&icons::HEART_FILLED, 36.0).color(rune::Color::WHITE)),
+                        .child(icon(&icons::HEART_FILLED, 36.0).color(white)),
                 )
                 .child(
                     col()
                         .gap(4.0)
-                        .child(text("Liked Music").font(typo::TITLE).color(t.brand_text))
+                        .child(text("Liked Music").font(typo::TITLE).color(white))
                         .child(
                             text("Auto playlist from your library")
                                 .font(typo::CAPTION)
-                                .color(t.brand_text),
+                                .color(white_subtle),
                         ),
                 ),
         )
