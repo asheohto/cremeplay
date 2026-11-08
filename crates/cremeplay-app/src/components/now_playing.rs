@@ -100,9 +100,96 @@ pub fn render(s: &AppState) -> El {
                 )
         }
         NowPlayingTab::Queue => {
+            let mut queue_list = col().w(640.0).gap(8.0).py(20.0);
+
+            if s.queue.is_empty() {
+                if let Some(current) = &s.current_track {
+                    let card = row()
+                        .w_full()
+                        .h(56.0)
+                        .radius(10.0)
+                        .px(16.0)
+                        .center_y()
+                        .gap(14.0)
+                        .fill(t.band)
+                        .border(1.0, t.brand)
+                        .child(
+                            el()
+                                .size(40.0, 40.0)
+                                .radius(8.0)
+                                .fill(t.hover)
+                                .center()
+                                .child(icon(&icons::MUSIC_NOTE, 20.0).color(t.brand_text)),
+                        )
+                        .child(
+                            col()
+                                .gap(2.0)
+                                .child(text(&current.title).font(typo::LABEL).color(t.brand_text))
+                                .child(text(&current.artist).font(typo::CAPTION).color(t.muted)),
+                        );
+                    queue_list = queue_list.child(card);
+                } else {
+                    queue_list = queue_list.child(
+                        col()
+                            .center()
+                            .gap(12.0)
+                            .py(40.0)
+                            .child(icon(&icons::QUEUE, 40.0).color(t.muted))
+                            .child(text("Queue is empty").font(typo::TITLE).color(t.muted)),
+                    );
+                }
+            } else {
+                for (idx, item) in s.queue.iter().enumerate() {
+                    let is_current = idx == s.queue_index;
+                    let bg = if is_current { t.band } else { t.hover };
+                    let border_col = if is_current { t.brand } else { rune::Color::TRANSPARENT };
+                    let track_item = item.clone();
+
+                    let card = row()
+                        .key(format!("np-queue-item-{}", idx))
+                        .w_full()
+                        .h(52.0)
+                        .radius(10.0)
+                        .px(14.0)
+                        .center_y()
+                        .justify_between()
+                        .fill(bg)
+                        .border(1.0, border_col)
+                        .child(
+                            row()
+                                .center_y()
+                                .gap(12.0)
+                                .child(
+                                    el()
+                                        .size(36.0, 36.0)
+                                        .radius(6.0)
+                                        .fill(t.band)
+                                        .center()
+                                        .child(icon(&icons::MUSIC_NOTE, 18.0).color(if is_current { t.brand_text } else { t.muted })),
+                                )
+                                .child(
+                                    col()
+                                        .gap(2.0)
+                                        .child(text(&item.title).font(typo::LABEL).color(if is_current { t.brand_text } else { t.heading }))
+                                        .child(text(&item.artist).font(typo::CAPTION).color(t.muted)),
+                                ),
+                        )
+                        .on_press(move |s: &mut AppState| {
+                            s.queue_index = idx;
+                            s.play_track(track_item.clone());
+                        });
+
+                    queue_list = queue_list.child(card);
+                }
+            }
+
             col()
+                .w_full()
+                .grow(1.0)
+                .min_h(0.0)
+                .scroll(rune::ScrollSpec { stick_bottom: false })
                 .center()
-                .child(text("Upcoming Tracks").font(typo::TITLE).color(t.heading))
+                .child(queue_list)
         }
         NowPlayingTab::Lyrics => {
             let offset_sec = s.lyrics_offset_ms as f64 / 1000.0;
