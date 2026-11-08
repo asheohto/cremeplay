@@ -90,12 +90,15 @@ pub struct AppState {
     // Library & Feed
     pub home_sections: Vec<HomeSection>,
     pub is_loading_home: bool,
+    pub explore_sections: Vec<HomeSection>,
+    pub is_loading_explore: bool,
     pub sidebar_playlists: Vec<SidebarPlaylist>,
     pub liked_tracks: Vec<TrackItem>,
     pub account: Option<AccountProfile>,
 
     // Thread-safe async buffers
     pub pending_home_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
+    pub pending_explore_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_search_results: Arc<Mutex<Option<SearchResultPayload>>>,
     pub pending_lyrics: Arc<Mutex<Option<LyricsPayload>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
@@ -179,6 +182,8 @@ impl AppState {
 
             home_sections: Vec::new(),
             is_loading_home: true,
+            explore_sections: Vec::new(),
+            is_loading_explore: true,
             sidebar_playlists: Vec::new(),
             liked_tracks: Vec::new(),
             account: if let Some(name) = &cfg.user_name {
@@ -192,6 +197,7 @@ impl AppState {
             },
 
             pending_home_feed: Arc::new(Mutex::new(None)),
+            pending_explore_feed: Arc::new(Mutex::new(None)),
             pending_search_results: Arc::new(Mutex::new(None)),
             pending_lyrics: Arc::new(Mutex::new(None)),
             pending_playlists: Arc::new(Mutex::new(None)),

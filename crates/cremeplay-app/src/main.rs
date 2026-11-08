@@ -4,7 +4,7 @@ pub mod icons;
 mod state;
 mod theme;
 
-use components::{header, home_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
+use components::{explore_view, header, home_view, library_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
 use state::{ActiveView, AppState};
 use std::time::Duration;
 use rune::{col, row, AppSpec, Cx, El, Key, KeyEvent, Tx, Waker};
@@ -16,8 +16,8 @@ fn view(s: &AppState, _: &mut Cx<AppState>) -> El {
     let main_content = match s.active_view {
         ActiveView::Home => home_view::render(s),
         ActiveView::Search => search_view::render(s),
-        ActiveView::Explore => home_view::render(s),
-        ActiveView::Library => search_view::render(s),
+        ActiveView::Explore => explore_view::render(s),
+        ActiveView::Library => library_view::render(s),
         ActiveView::PlaylistDetail => playlist_view::render(s),
     };
 
@@ -77,6 +77,7 @@ fn setup(s: &mut AppState, waker: Waker) {
     let innertube = s.innertube.clone();
     let config_mgr = s.config_mgr.clone();
     let pending_home = s.pending_home_feed.clone();
+    let pending_explore = s.pending_explore_feed.clone();
     let pending_pl = s.pending_playlists.clone();
     let pending_acc = s.pending_account.clone();
     let waker_clone = waker.clone();
@@ -100,6 +101,12 @@ fn setup(s: &mut AppState, waker: Waker) {
             waker_clone();
         }
 
+        // Fetch explore feed
+        if let Ok(sections) = innertube.get_explore_feed().await {
+            *pending_explore.lock().unwrap() = Some(sections);
+            waker_clone();
+        }
+
         // Fetch sidebar playlists
         if let Ok(playlists) = innertube.get_user_playlists().await {
             *pending_pl.lock().unwrap() = Some(playlists);
@@ -116,6 +123,13 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
     if let Some(sections) = s.pending_home_feed.lock().unwrap().take() {
         s.home_sections = sections;
         s.is_loading_home = false;
+        state_changed = true;
+    }
+
+    // Drain async explore feed
+    if let Some(sections) = s.pending_explore_feed.lock().unwrap().take() {
+        s.explore_sections = sections;
+        s.is_loading_explore = false;
         state_changed = true;
     }
 

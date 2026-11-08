@@ -1,5 +1,7 @@
+pub mod explore_view;
 pub mod header;
 pub mod home_view;
+pub mod library_view;
 pub mod now_playing;
 pub mod player_bar;
 pub mod playlist_view;
