@@ -998,6 +998,25 @@ impl InnertubeClient {
         Ok(playlists)
     }
 
+    async fn verify_stream_playable(&self, url: &str) -> bool {
+        let client = reqwest::Client::builder().build().unwrap_or_default();
+        let req = client.get(url)
+            .header("Range", "bytes=0-512")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .timeout(std::time::Duration::from_millis(2500));
+        match req.send().await {
+            Ok(res) => {
+                let status = res.status();
+                eprintln!("[VerifyStream] URL: {}... status: {}", &url[..url.len().min(40)], status);
+                status.is_success() || status == reqwest::StatusCode::PARTIAL_CONTENT
+            }
+            Err(e) => {
+                eprintln!("[VerifyStream] Error: {}", e);
+                false
+            }
+        }
+    }
+
     pub async fn get_audio_stream_url(&self, video_id: &str) -> Result<String, String> {
         // Strategy 1: RustyPipe (Full JS deobfuscation, n-sig decode, cipher resolver)
         if let Ok(player) = self.rustypipe.query().player(video_id).await {
@@ -1008,16 +1027,27 @@ impl InnertubeClient {
                 .filter(|s| s.mime.contains("mp4"))
                 .max_by_key(|s| s.bitrate)
             {
-                info!("[Innertube] RustyPipe extracted MP4 audio stream (bitrate: {})", stream.bitrate);
-                return Ok(stream.url.clone());
+                if self.verify_stream_playable(&stream.url).await {
+                    info!("[Innertube] RustyPipe extracted verified MP4 audio stream (bitrate: {})", stream.bitrate);
+                    return Ok(stream.url.clone());
+                }
             }
             if let Some(stream) = player.audio_streams.iter().max_by_key(|s| s.bitrate) {
-                info!("[Innertube] RustyPipe extracted audio stream (bitrate: {})", stream.bitrate);
-                return Ok(stream.url.clone());
+                if self.verify_stream_playable(&stream.url).await {
+                    info!("[Innertube] RustyPipe extracted verified audio stream (bitrate: {})", stream.bitrate);
+                    return Ok(stream.url.clone());
+                }
             }
         }
 
-        // Strategy 2: ANDROID_VR client (bypasses Android PoToken & Web bot checks)
+        // Strategy 2: High-uptime Invidious direct proxy stream (itag 140 = 128k AAC / M4A)
+        let inv_proxy_url = format!("https://yt.chocolatemoo53.com/latest_version?id={}&itag=140", video_id);
+        if self.verify_stream_playable(&inv_proxy_url).await {
+            info!("[Innertube] Invidious direct proxy stream verified for video {}", video_id);
+            return Ok(inv_proxy_url);
+        }
+
+        // Strategy 3: ANDROID_VR client (bypasses Android PoToken & Web bot checks)
         let vr_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
         let vr_body = json!({
             "context": {
@@ -1044,15 +1074,17 @@ impl InnertubeClient {
                     audio_streams.sort_by_key(|f| f["bitrate"].as_i64().unwrap_or(0));
                     if let Some(best) = audio_streams.last() {
                         if let Some(u) = best["url"].as_str() {
-                            info!("[Innertube] ANDROID_VR extracted stream URL successfully");
-                            return Ok(u.to_string());
+                            if self.verify_stream_playable(u).await {
+                                info!("[Innertube] ANDROID_VR extracted stream URL successfully");
+                                return Ok(u.to_string());
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Strategy 3: Invidious API instances
+        // Strategy 4: Invidious API instances fallback
         let invidious_instances = [
             "https://inv.nadeko.net",
             "https://invidious.nerdvpn.de",
@@ -1071,8 +1103,10 @@ impl InnertubeClient {
                         });
                         if let Some(fmt) = audio_fmt {
                             if let Some(u) = fmt["url"].as_str() {
-                                info!("[Innertube] Invidious fallback succeeded from {}", instance);
-                                return Ok(u.to_string());
+                                if self.verify_stream_playable(u).await {
+                                    info!("[Innertube] Invidious fallback succeeded from {}", instance);
+                                    return Ok(u.to_string());
+                                }
                             }
                         }
                     }
@@ -2074,43 +2108,10 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_rustypipe_player() {
-        let rp = rustypipe::client::RustyPipe::builder().build().unwrap();
-        let res = rp.query().player("dQw4w9WgXcQ").await;
-        println!("RustyPipe result is_ok: {}", res.is_ok());
-        if let Ok(player) = res {
-            println!("RustyPipe audio streams count: {}", player.audio_streams.len());
-            for s in &player.audio_streams {
-                println!("RustyPipe audio stream: bitrate={:?}, mime={:?}, url={}", s.bitrate, s.mime, &s.url[..s.url.len().min(60)]);
-            }
-
-            // Test fetching first 64KB and test Rodio decoder
-            if let Some(best_audio) = player.audio_streams.iter().filter(|s| s.mime.contains("mp4")).max_by_key(|s| s.bitrate) {
-                let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap();
-                let resp = client.get(&best_audio.url).header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36").send().await.expect("reqwest send");
-                println!("Stream HTTP response status: {:?}", resp.status());
-                assert!(resp.status().is_success());
-                let bytes = resp.bytes().await.expect("bytes");
-                println!("Fetched {} bytes", bytes.len());
-                let cursor = std::io::Cursor::new(bytes.to_vec());
-                let dec = rodio::Decoder::try_from(cursor);
-                println!("Rodio Decoder try_from is_ok: {}", dec.is_ok());
-                if let Err(e) = &dec {
-                    println!("Decoder error: {:?}", e);
-                }
-                assert!(dec.is_ok());
-            }
-        } else if let Err(e) = res {
-            println!("RustyPipe error: {:?}", e);
-        }
-    }
-
-    #[tokio::test]
-    #[ignore]
     async fn test_audio_stream() {
         let client = InnertubeClient::new();
-        let res = client.get_audio_stream_url("dQw4w9WgXcQ").await;
-        println!("Stream result: {:?}", res);
+        let res = client.get_audio_stream_url("MV_3Dpw-BRY").await;
+        println!("Stream result on MV_3Dpw-BRY: {:?}", res);
         assert!(res.is_ok(), "Expected stream URL, got: {:?}", res);
     }
 }

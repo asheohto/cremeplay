@@ -138,6 +138,7 @@ impl AppState {
         innertube.set_cookies(cfg.auth_cookies.clone());
         let lrclib = Arc::new(LrclibClient::new());
         let player = Arc::new(AudioPlayer::new());
+        crate::agent_server::register_player(player.clone());
         let discord = Arc::new(DiscordManager::new());
         let tuna = Arc::new(TunaManager::new());
         let sponsorblock = Arc::new(SponsorBlockClient::new());
@@ -285,8 +286,19 @@ impl AppState {
 
         tokio::spawn(async move {
             // 1. Play stream
-            if let Ok(url) = innertube.get_audio_stream_url(&track_clone.video_id).await {
-                let _ = player.play_stream(&url, track_clone.clone()).await;
+            eprintln!("[State] Resolving stream for video_id: {}", track_clone.video_id);
+            match innertube.get_audio_stream_url(&track_clone.video_id).await {
+                Ok(url) => {
+                    eprintln!("[State] Got audio stream URL (length {}), sending to player...", url.len());
+                    if let Err(e) = player.play_stream(&url, track_clone.clone()).await {
+                        eprintln!("[State] Failed to play stream: {}", e);
+                    } else {
+                        eprintln!("[State] Playback started successfully!");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[State] Failed to get audio stream URL: {}", e);
+                }
             }
 
             // 2. Discord RPC

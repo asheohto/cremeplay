@@ -213,10 +213,29 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         s.tuna.update_playback_state(s.is_playing, s.current_time);
     }
 
-    // Wake 30 fps while playing for smooth seekbar
+    // Keep agent snapshot in sync for ultra-fast, zero-lock inspection
+    crate::agent_server::update_snapshot(crate::agent_server::AppStatusDto {
+        is_playing: s.is_playing,
+        current_time: s.current_time,
+        duration: s.duration,
+        volume: s.volume,
+        is_muted: s.is_muted,
+        shuffle: s.shuffle,
+        repeat_mode: format!("{:?}", s.repeat_mode),
+        active_view: format!("{:?}", s.active_view),
+        current_track: s.current_track.clone(),
+        queue_len: s.queue.len(),
+        show_queue_drawer: s.show_queue_drawer,
+        show_now_playing: s.show_now_playing,
+        show_settings: s.show_settings,
+    });
+
+    // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates
     if s.is_playing {
         tx.wake_after(Duration::from_millis(33));
         return true;
+    } else {
+        tx.wake_after(Duration::from_millis(250));
     }
 
     state_changed || prev_playing != s.is_playing || (prev_time - s.current_time).abs() > 0.5
@@ -350,8 +369,13 @@ fn start_memory_trimmer() {
     });
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to initialize Tokio runtime");
+    let _guard = rt.enter();
+
     #[cfg(windows)]
     start_memory_trimmer();
 

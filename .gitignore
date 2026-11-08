@@ -25,3 +25,11 @@ Thumbs.db
 *.png
 *.jsonl
 tree*.json
+
+# RustyPipe cache
+rustypipe_cache.json
+rustypipe_reports/
+
+# Scratch test files
+scratch/
+

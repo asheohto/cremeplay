@@ -61,28 +61,55 @@ impl AudioPlayer {
         let segments = self.sponsorblock.get_segments(&track.video_id).await;
         *self.segments.lock().unwrap() = segments;
 
-        // Download audio stream into memory with browser User-Agent
+        // Fetch audio stream in bounded 1MB chunks to comply with YouTube googlevideo protocol
         let client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
             .build()
             .map_err(|e| e.to_string())?;
 
-        let res = client
-            .get(stream_url)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to fetch audio stream: {}", e))?;
+        const CHUNK_SIZE: usize = 1024 * 1024;
+        let mut buffer = Vec::new();
+        let mut start: usize = 0;
 
-        if !res.status().is_success() && res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-            return Err(format!("Audio stream returned HTTP {}", res.status()));
+        loop {
+            let end = start + CHUNK_SIZE - 1;
+            let range_val = format!("bytes={}-{}", start, end);
+            let res = client
+                .get(stream_url)
+                .header("Range", range_val)
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch audio stream chunk: {}", e))?;
+
+            if !res.status().is_success() && res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                if buffer.is_empty() {
+                    return Err(format!("Audio stream returned HTTP {}", res.status()));
+                } else {
+                    break;
+                }
+            }
+
+            let content_range = res.headers().get("content-range").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
+            let total_size: Option<usize> = content_range.as_ref().and_then(|cr| {
+                cr.split('/').last().and_then(|s| s.parse().ok())
+            });
+
+            let bytes = res.bytes().await.map_err(|e| format!("Failed to read chunk bytes: {}", e))?;
+            let chunk_len = bytes.len();
+            if chunk_len == 0 {
+                break;
+            }
+            buffer.extend_from_slice(&bytes);
+            start += chunk_len;
+
+            if let Some(total) = total_size {
+                if start >= total {
+                    break;
+                }
+            }
         }
 
-        let bytes = res
-            .bytes()
-            .await
-            .map_err(|e| format!("Failed to read stream bytes: {}", e))?;
-
-        let cursor = Cursor::new(bytes.to_vec());
+        let cursor = Cursor::new(buffer);
         let source = Decoder::try_from(cursor)
             .map_err(|e| format!("Audio decode error: {:?}", e))?;
 
@@ -124,9 +151,9 @@ impl AudioPlayer {
             if was_playing {
                 player.pause();
                 self.is_playing.store(false, Ordering::Relaxed);
-                if let Some(start) = *self.playback_start_instant.lock().unwrap() {
+                let mut start_guard = self.playback_start_instant.lock().unwrap();
+                if let Some(start) = start_guard.take() {
                     *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64();
-                    *self.playback_start_instant.lock().unwrap() = None;
                 }
                 false
             } else {
@@ -146,9 +173,9 @@ impl AudioPlayer {
             if self.is_playing.load(Ordering::Relaxed) {
                 player.pause();
                 self.is_playing.store(false, Ordering::Relaxed);
-                if let Some(start) = *self.playback_start_instant.lock().unwrap() {
+                let mut start_guard = self.playback_start_instant.lock().unwrap();
+                if let Some(start) = start_guard.take() {
                     *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64();
-                    *self.playback_start_instant.lock().unwrap() = None;
                 }
             }
         }
