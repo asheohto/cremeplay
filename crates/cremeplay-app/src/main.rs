@@ -238,6 +238,7 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         show_queue_drawer: s.show_queue_drawer,
         show_now_playing: s.show_now_playing,
         show_settings: s.show_settings,
+        theme: s.theme.id.to_string(),
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

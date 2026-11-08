@@ -39,6 +39,7 @@ pub struct AppStatusDto {
     pub show_queue_drawer: bool,
     pub show_now_playing: bool,
     pub show_settings: bool,
+    pub theme: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -58,6 +59,7 @@ pub enum AgentAction {
     ToggleNowPlaying,
     ToggleSettings,
     PlayTrack { track: TrackItem },
+    Theme { name: String },
 }
 
 pub fn start(handle: AppHandle<AppState>) {
@@ -228,6 +230,7 @@ async fn handle_request(
                     show_queue_drawer: s.show_queue_drawer,
                     show_now_playing: s.show_now_playing,
                     show_settings: s.show_settings,
+                    theme: s.theme.id.to_string(),
                 };
                 let _ = tx.send(dto);
             });
@@ -424,6 +427,10 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::PlayTrack { track } => {
             s.play_track(track);
             r#"{"status":"ok","action":"play_track"}"#.to_string()
+        }
+        AgentAction::Theme { name } => {
+            s.set_theme(&name);
+            format!(r#"{{"status":"ok","action":"theme","theme":"{}"}}"#, name)
         }
     }
 }

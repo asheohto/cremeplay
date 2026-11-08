@@ -33,3 +33,6 @@ rustypipe_reports/
 # Scratch test files
 scratch/
 
+# Standalone release binaries
+Cremeplay_*.exe
+
