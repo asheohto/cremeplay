@@ -324,8 +324,37 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     false
 }
 
+#[cfg(windows)]
+fn start_memory_trimmer() {
+    tokio::spawn(async {
+        use std::os::raw::c_void;
+        type HANDLE = *mut c_void;
+        type BOOL = i32;
+
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn K32EmptyWorkingSet(h_process: HANDLE) -> BOOL;
+            fn GetCurrentProcess() -> HANDLE;
+        }
+
+        // Wait 5 seconds after launch to allow initial WGPU shaders and textures to settle
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+        loop {
+            unsafe {
+                let cur = GetCurrentProcess();
+                let _ = K32EmptyWorkingSet(cur);
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;
+        }
+    });
+}
+
 #[tokio::main]
 async fn main() {
+    #[cfg(windows)]
+    start_memory_trimmer();
+
     let mut spec = AppSpec::new("Cremeplay", (1160.0, 780.0), AppState::new, view);
     spec.setup = Some(setup);
     spec.poll = Some(poll);
