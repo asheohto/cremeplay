@@ -222,12 +222,55 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     // When text input is not focused, handle playback controls
     if tx.focused().is_none() {
         if let Key::Text(t) = &ev.key {
-            if t == " " {
-                s.is_playing = s.player.toggle_playback();
-                return true;
+            match t.as_str() {
+                " " => {
+                    s.is_playing = s.player.toggle_playback();
+                    return true;
+                }
+                "n" | "N" => {
+                    s.play_next();
+                    return true;
+                }
+                "p" | "P" => {
+                    s.play_prev();
+                    return true;
+                }
+                "m" | "M" => {
+                    s.is_muted = !s.is_muted;
+                    if s.is_muted {
+                        s.prev_volume = s.volume;
+                        s.volume = 0.0;
+                        s.player.set_volume(0.0);
+                    } else {
+                        s.volume = if s.prev_volume > 0.0 { s.prev_volume } else { 0.7 };
+                        s.player.set_volume(s.volume);
+                    }
+                    return true;
+                }
+                "q" | "Q" => {
+                    s.show_queue_drawer = !s.show_queue_drawer;
+                    return true;
+                }
+                "s" | "S" => {
+                    s.shuffle = !s.shuffle;
+                    return true;
+                }
+                "r" | "R" => {
+                    s.repeat_mode = match s.repeat_mode {
+                        crate::state::RepeatMode::Off => crate::state::RepeatMode::All,
+                        crate::state::RepeatMode::All => crate::state::RepeatMode::One,
+                        crate::state::RepeatMode::One => crate::state::RepeatMode::Off,
+                    };
+                    return true;
+                }
+                _ => {}
             }
         }
         match ev.key {
+            Key::Command(',') => {
+                s.show_settings = !s.show_settings;
+                return true;
+            }
             Key::Left => {
                 let new_time = (s.current_time - 5.0).max(0.0);
                 s.player.seek(new_time);
