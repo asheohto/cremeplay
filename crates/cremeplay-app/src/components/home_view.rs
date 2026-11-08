@@ -16,6 +16,30 @@ pub fn render(s: &AppState) -> El {
             .child(text("Loading recommendations…").font(typo::BODY).color(t.muted));
     }
 
+    if s.home_sections.is_empty() {
+        return col()
+            .w_full()
+            .h_full()
+            .center()
+            .gap(14.0)
+            .child(icon(&icons::EXPLORE, 48.0).color(t.muted))
+            .child(text("Welcome to Cremeplay").font(typo::TITLE).color(t.heading))
+            .child(text("Search for your favorite songs, or explore trending music.").font(typo::BODY).color(t.muted))
+            .child(
+                el()
+                    .key("home-empty-explore-btn")
+                    .h(38.0)
+                    .px(20.0)
+                    .radius(19.0)
+                    .fill(t.brand)
+                    .center()
+                    .child(text("Explore Trending").font(typo::LABEL).color(t.brand_text))
+                    .on_press(|s: &mut AppState| {
+                        s.navigate_to(crate::state::ActiveView::Explore);
+                    }),
+            );
+    }
+
     let mut content = col()
         .key("home-content")
         .w_full()

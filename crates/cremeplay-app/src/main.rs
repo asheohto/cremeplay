@@ -96,9 +96,19 @@ fn setup(s: &mut AppState, waker: Waker) {
         }
 
         // Fetch home feed
-        if let Ok(sections) = innertube.get_home_feed(&taste_artists).await {
-            *pending_home.lock().unwrap() = Some(sections);
-            waker_clone();
+        match innertube.get_home_feed(&taste_artists).await {
+            Ok(sections) => {
+                *pending_home.lock().unwrap() = Some(sections);
+                waker_clone();
+            }
+            Err(_) => {
+                if let Ok(sections) = innertube.get_explore_feed().await {
+                    *pending_home.lock().unwrap() = Some(sections);
+                } else {
+                    *pending_home.lock().unwrap() = Some(Vec::new());
+                }
+                waker_clone();
+            }
         }
 
         // Fetch explore feed

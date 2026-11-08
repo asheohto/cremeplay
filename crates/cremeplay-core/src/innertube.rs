@@ -508,7 +508,7 @@ impl InnertubeClient {
             "context": {
                 "client": {
                     "clientName": "WEB_REMIX",
-                    "clientVersion": "1.20240101.01.00",
+                    "clientVersion": "1.20260928.13.00",
                     "hl": "en",
                     "gl": "US"
                 }
@@ -786,6 +786,12 @@ impl InnertubeClient {
             } else {
                 let insert_idx = 1.min(sections.len());
                 sections.insert(insert_idx, community_section);
+            }
+        }
+
+        if sections.is_empty() {
+            if let Ok(explore) = self.get_explore_feed().await {
+                sections = explore;
             }
         }
 
