@@ -20,3 +20,8 @@ src-tauri/gen/schemas/
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+
+# Rune test & snap outputs
+*.png
+*.jsonl
+tree*.json

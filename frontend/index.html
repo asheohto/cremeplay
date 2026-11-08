@@ -19,6 +19,12 @@
   <div id="app">
     <header class="top">
       <div class="top-left">
+        <button id="nav-back-btn" class="icon-btn nav-back-btn" title="Back (Alt+Left)" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
         <div class="logo" id="logo-btn">
           <img src="./cremeplay.png" alt="Cremeplay Logo" class="logo-img" />
           <span>Cremeplay</span>
@@ -80,6 +86,17 @@
         </div>
       </div>
     </header>
+
+    <div id="update-banner" class="update-banner hidden">
+      <div class="update-banner-content">
+        <span class="update-banner-icon">✨</span>
+        <span id="update-banner-text">A new version of Cremeplay is available!</span>
+      </div>
+      <div class="update-banner-actions">
+        <button id="btn-update-download" class="btn-update-primary">Update</button>
+        <button id="btn-update-dismiss" class="btn-update-dismiss" title="Dismiss">✕</button>
+      </div>
+    </div>
 
     <div class="main">
       <nav class="side">
@@ -167,6 +184,39 @@
         </div>
         <div id="queue-list" class="queue-list"></div>
         <div id="drawer-lyrics-container" class="lyrics-view hidden">
+          <div class="lyrics-toolbar" id="drawer-lyrics-toolbar">
+            <div class="lyrics-source-badge">
+              <span class="lyrics-source-label">Source:</span>
+              <select id="drawer-lyrics-source-select" class="lyrics-source-select">
+                <option value="auto">Auto</option>
+                <option value="lrclib">LRCLIB</option>
+                <option value="betterlyrics">Better-Lyrics</option>
+                <option value="youtube">YouTube Captions</option>
+                <option value="youtube music">YouTube Music</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="lyrics-offset-group">
+              <button id="btn-offset-minus" class="lyrics-offset-btn" title="Shift earlier (-200ms)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+              <span id="lyrics-offset-display" class="lyrics-offset-label">0.0s</span>
+              <button id="btn-offset-plus" class="lyrics-offset-btn" title="Shift later (+200ms)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+            </div>
+            <button id="btn-edit-custom-lyrics" class="icon-btn" title="Edit custom lyrics">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+          </div>
           <div id="drawer-lyrics-text" class="lyrics-text">No lyrics loaded</div>
         </div>
       </aside>
@@ -279,46 +329,145 @@
             </svg>
           </button>
         </div>
-        <div class="settings-section">
-          <div class="settings-section-title">Color Themes</div>
-          <div class="theme-grid" id="theme-selector-grid"></div>
+
+        <div class="settings-tabs">
+          <button class="settings-tab active" data-tab="general">General</button>
+          <button class="settings-tab" data-tab="lyrics">Lyrics</button>
+          <button class="settings-tab" data-tab="integrations">Integrations</button>
+          <button class="settings-tab" data-tab="about">About</button>
         </div>
-        <label class="row"><span>Autoplay on startup</span><input type="checkbox" id="set-autoplay" /></label>
-        <label class="row"><span>Smooth UI animations</span><input type="checkbox" id="set-animations" checked /></label>
-        <label class="row"><span>Enable video switcher</span><input type="checkbox" id="set-video-switcher" /></label>
-        <div class="row dropdown-row">
-          <span>Video quality</span>
-          <select id="set-video-quality" class="settings-select">
-            <option value="auto" selected>Auto (Recommended)</option>
-            <option value="hd1080">1080p (Full HD)</option>
-            <option value="hd720">720p (HD)</option>
-            <option value="large">480p</option>
-            <option value="medium">360p</option>
-            <option value="small">240p</option>
-            <option value="tiny">144p</option>
-          </select>
+
+        <!-- Tab 1: General -->
+        <div class="settings-tab-pane" id="tab-pane-general">
+          <div class="settings-section" style="margin-top: 0; padding-top: 0; border-top: none;">
+            <div class="settings-section-title">Color Themes</div>
+            <div class="theme-grid" id="theme-selector-grid"></div>
+          </div>
+          <div class="row">
+            <span>Autoplay on startup</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-autoplay" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span>Smooth UI animations</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-animations" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span>Enable video switcher</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-video-switcher" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row dropdown-row">
+            <span>Video quality</span>
+            <select id="set-video-quality" class="settings-select">
+              <option value="auto" selected>Auto (Recommended)</option>
+              <option value="hd1080">1080p (Full HD)</option>
+              <option value="hd720">720p (HD)</option>
+              <option value="large">480p</option>
+              <option value="medium">360p</option>
+              <option value="small">240p</option>
+              <option value="tiny">144p</option>
+            </select>
+          </div>
+          <div class="row">
+            <span>Close to system tray</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-tray" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
         </div>
-        <div class="row dropdown-row">
-          <span>Romanized lyrics</span>
-          <select id="set-romanize-mode" class="settings-select">
-            <option value="off">Off (Disabled)</option>
-            <option value="subtext" selected>Subtext (Original main, Romanized sub)</option>
-            <option value="main">Main text (Romanized main, Original sub)</option>
-            <option value="only">Only Romanized</option>
-          </select>
+
+        <!-- Tab 2: Lyrics -->
+        <div class="settings-tab-pane hidden" id="tab-pane-lyrics">
+          <div class="row dropdown-row">
+            <span>Romanized lyrics</span>
+            <select id="set-romanize-mode" class="settings-select">
+              <option value="off">Off (Disabled)</option>
+              <option value="subtext" selected>Subtext (Original main, Romanized sub)</option>
+              <option value="main">Main text (Romanized main, Original sub)</option>
+              <option value="only">Only Romanized</option>
+            </select>
+          </div>
+          <div class="row dropdown-row">
+            <span>Preferred source</span>
+            <select id="set-lyrics-source" class="settings-select">
+              <option value="auto" selected>Auto (LRCLIB &rarr; Better-Lyrics &rarr; YT)</option>
+              <option value="lrclib">LRCLIB Only</option>
+              <option value="betterlyrics">Better-Lyrics Only</option>
+              <option value="youtube">YouTube Captions</option>
+              <option value="youtube music">YouTube Music (Plain)</option>
+            </select>
+          </div>
+          <div class="row">
+            <span>Sync timing offset</span>
+            <div class="lyrics-offset-group">
+              <button id="set-btn-offset-minus" class="lyrics-offset-btn" title="Shift -200ms">-0.2s</button>
+              <span id="set-lyrics-offset-val" class="lyrics-offset-label">0.0s</span>
+              <button id="set-btn-offset-plus" class="lyrics-offset-btn" title="Shift +200ms">+0.2s</button>
+              <button id="set-btn-offset-reset" class="lyrics-offset-btn" style="margin-left: 4px;" title="Reset offset">Reset</button>
+            </div>
+          </div>
         </div>
-        <label class="row"><span>Discord Rich Presence</span><input type="checkbox" id="set-discord" checked /></label>
-        <label class="row"><span>SponsorBlock auto-skip</span><input type="checkbox" id="set-sponsor" checked /></label>
-        <label class="row"><span>OBS Tuna stream overlay</span><input type="checkbox" id="set-tuna" checked /></label>
-        <label class="row"><span>Close to system tray</span><input type="checkbox" id="set-tray" checked /></label>
-        <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
-          <div style="font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-sec);">Manual Cookie
-            Import (Optional)</div>
-          <textarea id="cookie-input" rows="2" placeholder="Paste SAPISID=... or full cookie string"
-            style="width: 100%; box-sizing: border-box; background: var(--hover); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px; font-size: 12px; resize: vertical; outline: none;"></textarea>
-          <button id="btn-save-cookie"
-            style="margin-top: 8px; width: 100%; border-radius: 8px; padding: 8px; background: var(--hover); border: 1px solid var(--border); color: var(--text); font-size: 13px; cursor: pointer; font-weight: 500;">Import
-            Cookies</button>
+
+        <!-- Tab 3: Integrations -->
+        <div class="settings-tab-pane hidden" id="tab-pane-integrations">
+          <div class="row">
+            <span>Discord Rich Presence</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-discord" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span>SponsorBlock auto-skip</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-sponsor" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div class="row">
+            <span>OBS Tuna stream overlay</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-tuna" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);">
+            <div style="font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-sec);">Manual Cookie
+              Import (Optional)</div>
+            <textarea id="cookie-input" rows="2" placeholder="Paste SAPISID=... or full cookie string"
+              style="width: 100%; box-sizing: border-box; background: var(--hover); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px; font-size: 12px; resize: vertical; outline: none;"></textarea>
+            <button id="btn-save-cookie"
+              style="margin-top: 8px; width: 100%; border-radius: 8px; padding: 8px; background: var(--hover); border: 1px solid var(--border); color: var(--text); font-size: 13px; cursor: pointer; font-weight: 500;">Import
+              Cookies</button>
+          </div>
+        </div>
+
+        <!-- Tab 4: About & Updates -->
+        <div class="settings-tab-pane hidden" id="tab-pane-about">
+          <div class="about-hero">
+            <img src="./cremeplay.png" alt="Cremeplay" style="width: 48px; height: 48px; border-radius: 12px; margin-bottom: 8px;" />
+            <h4 style="font: 700 18px var(--display); color: var(--heading);">Cremeplay</h4>
+            <p style="font: 400 13px Inter, sans-serif; color: var(--muted);">Version <span id="about-app-version">1.1.0</span></p>
+          </div>
+          <div class="row" style="margin-top: 12px;">
+            <div>
+              <div style="font-weight: 500;">Check for Updates</div>
+              <div id="update-status-text" style="font-size: 12px; color: var(--muted);">Click check to verify latest release</div>
+            </div>
+            <button id="btn-check-updates" class="btn-secondary" style="padding: 6px 14px; font-size: 12px;">Check now</button>
+          </div>
+          <div style="margin-top: 16px; font-size: 12px; color: var(--muted); line-height: 1.6;">
+            Debloated YouTube Music desktop client in Tauri v2 and Rust. Ultra-low memory, zero telemetry, instant startup.
+          </div>
         </div>
       </div>
     </div>
@@ -351,43 +500,85 @@
         </button>
       </header>
       <div class="np-body">
-        <!-- Tab 1: Cover -->
-        <div id="np-view-cover" class="np-view-panel">
-          <div class="np-mode-switcher-container hidden" id="np-mode-switcher-container">
-            <div class="np-mode-switcher">
-              <button id="np-mode-song" class="np-mode-btn active" title="Song mode (Cover art)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                </svg>
-                <span>Song</span>
-              </button>
-              <button id="np-mode-video" class="np-mode-btn" title="Video mode">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="3" /><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
-                </svg>
-                <span>Video</span>
-              </button>
+        <div class="np-panels-wrap">
+          <!-- Tab 1: Cover -->
+          <div id="np-view-cover" class="np-view-panel">
+            <div class="np-mode-switcher-container hidden" id="np-mode-switcher-container">
+              <div class="np-mode-switcher">
+                <button id="np-mode-song" class="np-mode-btn active" title="Song mode (Cover art)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                  </svg>
+                  <span>Song</span>
+                </button>
+                <button id="np-mode-video" class="np-mode-btn" title="Video mode">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="3" /><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
+                  </svg>
+                  <span>Video</span>
+                </button>
+                <button id="np-mode-lyrics" class="np-mode-btn" title="Lyrics beside cover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 6h16M4 12h10M4 18h14" />
+                  </svg>
+                  <span>Lyrics</span>
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="np-cover-container" id="np-cover-container">
-            <img id="np-artwork" class="np-artwork" alt="" />
-            <div id="np-video-wrapper" class="np-video-wrapper">
-              <div id="yt-player-container">
-                <div id="yt-player"></div>
+            <div class="np-cover-container" id="np-cover-container">
+              <img id="np-artwork" class="np-artwork" alt="" />
+              <div id="np-video-wrapper" class="np-video-wrapper">
+                <div id="yt-player-container">
+                  <div id="yt-player"></div>
+                </div>
+                <div id="yt-video-shield" class="yt-video-shield" title="Click to play/pause"></div>
               </div>
             </div>
           </div>
-        </div>
-        <!-- Tab 2: Up Next -->
-        <div id="np-view-queue" class="np-view-panel hidden">
-          <div class="np-scroll-area">
-            <div id="np-queue-list" class="queue-list"></div>
+          <!-- Tab 2: Up Next -->
+          <div id="np-view-queue" class="np-view-panel hidden">
+            <div class="np-scroll-area">
+              <div id="np-queue-list" class="queue-list"></div>
+            </div>
           </div>
-        </div>
-        <!-- Tab 3: Lyrics -->
-        <div id="np-view-lyrics" class="np-view-panel hidden">
-          <div class="np-scroll-area lyrics-view">
-            <div id="np-lyrics-text" class="lyrics-text">No lyrics loaded</div>
+          <!-- Tab 3: Lyrics -->
+          <div id="np-view-lyrics" class="np-view-panel hidden">
+            <div class="lyrics-toolbar np-lyrics-toolbar">
+              <div class="lyrics-source-badge">
+                <span class="lyrics-source-label">Source:</span>
+                <select id="np-lyrics-source-select" class="lyrics-source-select">
+                  <option value="auto">Auto</option>
+                  <option value="lrclib">LRCLIB</option>
+                  <option value="betterlyrics">Better-Lyrics</option>
+                  <option value="youtube">YouTube Captions</option>
+                  <option value="youtube music">YouTube Music</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="lyrics-offset-group">
+                <button id="np-btn-offset-minus" class="lyrics-offset-btn" title="Shift earlier (-200ms)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </button>
+                <span id="np-lyrics-offset-display" class="lyrics-offset-label">0.0s</span>
+                <button id="np-btn-offset-plus" class="lyrics-offset-btn" title="Shift later (+200ms)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </button>
+              </div>
+              <button id="np-btn-edit-custom-lyrics" class="icon-btn" title="Edit custom lyrics">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="np-scroll-area lyrics-view">
+              <div id="np-lyrics-text" class="lyrics-text">No lyrics loaded</div>
+            </div>
           </div>
         </div>
 
@@ -494,6 +685,26 @@
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
         <span>Copy song link</span>
+      </div>
+    </div>
+
+    <!-- Custom Lyrics Editor Modal -->
+    <div id="custom-lyrics-backdrop" class="backdrop hidden">
+      <div class="modal custom-lyrics-dialog">
+        <div class="modal-head">
+          <h3>Custom Lyrics</h3>
+          <button id="close-custom-lyrics" class="icon-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">Paste time-synced LRC lines (e.g. <code>[00:12.30] lyrics line</code>) or plain text lyrics.</p>
+        <textarea id="custom-lyrics-input" class="custom-lyrics-textarea" rows="12" placeholder="[00:01.00] First line&#10;[00:05.50] Second line..."></textarea>
+        <div class="modal-actions">
+          <button id="btn-clear-custom-lyrics" class="btn-secondary">Clear / Delete</button>
+          <button id="btn-save-custom-lyrics" class="btn-primary">Save Lyrics</button>
+        </div>
       </div>
     </div>
   </div>

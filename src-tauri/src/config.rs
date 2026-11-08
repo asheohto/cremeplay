@@ -28,11 +28,23 @@ pub struct AppConfig {
     pub enable_video_switcher: bool,
     #[serde(default = "default_video_quality")]
     pub video_quality: String,
+    #[serde(default = "default_zero_i32")]
+    pub lyrics_offset_ms: i32,
+    #[serde(default = "default_auto_source")]
+    pub lyrics_source: String,
     pub auth_cookies: Option<String>,
     pub user_name: Option<String>,
     pub user_avatar: Option<String>,
     #[serde(default)]
     pub taste_artists: Vec<String>,
+}
+
+fn default_zero_i32() -> i32 {
+    0
+}
+
+fn default_auto_source() -> String {
+    "auto".to_string()
 }
 
 fn default_true() -> bool {
@@ -71,6 +83,8 @@ impl Default for AppConfig {
             romanize_mode: "subtext".to_string(),
             enable_video_switcher: false,
             video_quality: "auto".to_string(),
+            lyrics_offset_ms: 0,
+            lyrics_source: "auto".to_string(),
             auth_cookies: None,
             user_name: None,
             user_avatar: None,

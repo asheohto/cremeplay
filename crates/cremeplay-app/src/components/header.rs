@@ -1,0 +1,174 @@
+use crate::icons;
+use crate::state::{ActiveView, AppState};
+use crate::theme::typo;
+use rune::{el, icon, row, text, El};
+
+pub fn render(s: &AppState) -> El {
+    let t = &s.theme;
+
+    // 1. Back button (32x32 circle)
+    let can_go_back = !s.nav_history.is_empty();
+    let back_btn = el()
+        .key("nav-back")
+        .size(32.0, 32.0)
+        .radius(16.0)
+        .center()
+        .fill(if can_go_back { t.hover } else { rune::Color::TRANSPARENT })
+        .border(1.0, if can_go_back { t.border } else { rune::Color::TRANSPARENT })
+        .child(
+            icon(&icons::NAV_BACK, 18.0)
+                .color(if can_go_back { t.heading } else { t.muted }),
+        )
+        .on_press(|s: &mut AppState| {
+            s.navigate_back();
+        });
+
+    // 2. Logo (Cremeplay app icon + Brand typography)
+    let logo_img = if let Some(img) = s.logo_image.lock().unwrap().as_ref() {
+        el()
+            .size(32.0, 32.0)
+            .radius(8.0)
+            .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+    } else {
+        el().size(32.0, 32.0).radius(8.0).fill(t.brand)
+    };
+
+    let logo_text = text("Cremeplay")
+        .font(typo::TITLE)
+        .color(t.heading);
+
+    let logo = row()
+        .key("logo-btn")
+        .center_y()
+        .gap(10.0)
+        .child(logo_img)
+        .child(logo_text)
+        .on_press(|s: &mut AppState| {
+            s.navigate_to(ActiveView::Home);
+        });
+
+    let left = row()
+        .w(220.0)
+        .center_y()
+        .gap(12.0)
+        .child(back_btn)
+        .child(logo);
+
+    // 3. Search Bar (44px pill with Hugeicon search & clear)
+    let search_icon_el = icon(&icons::SEARCH, 20.0).color(t.muted);
+
+    let search_input_el = rune::text_input(&s.search_edit, typo::BODY)
+        .key("header-search-input")
+        .single_line()
+        .w_full()
+        .placeholder("Search songs, albums, artists", t.muted)
+        .on_edit(|s: &mut AppState| &mut s.search_edit)
+        .on_submit(|s: &mut AppState, _tx| {
+            let q = s.search_edit.text.clone();
+            s.trigger_search(q);
+        });
+
+    let mut search_bar = row()
+        .key("search-bar")
+        .w(520.0)
+        .h(44.0)
+        .radius(22.0)
+        .fill(t.panel)
+        .border(1.0, t.border)
+        .px(16.0)
+        .center_y()
+        .gap(12.0)
+        .child(search_icon_el)
+        .child(search_input_el);
+
+    if !s.search_edit.text.is_empty() {
+        let clear_btn = el()
+            .key("search-clear-btn")
+            .size(24.0, 24.0)
+            .radius(12.0)
+            .center()
+            .child(icon(&icons::SEARCH_CLEAR, 16.0).color(t.muted))
+            .on_press(|s: &mut AppState| {
+                s.search_edit.text.clear();
+            });
+        search_bar = search_bar.child(clear_btn);
+    }
+
+    // 4. Right Controls (Theme, Settings, Sign in)
+    let theme_btn = el()
+        .key("theme-btn")
+        .size(38.0, 38.0)
+        .radius(19.0)
+        .center()
+        .fill(t.hover)
+        .border(1.0, t.border)
+        .child(icon(&icons::THEME, 20.0).color(t.heading))
+        .on_press(|s: &mut AppState| {
+            let next_theme = match s.theme.id {
+                "dark" => "european-vintage",
+                "european-vintage" => "chinese-vintage",
+                "chinese-vintage" => "matcha-forest",
+                "matcha-forest" => "blueberry-berry",
+                "blueberry-berry" => "sapphire-heritage",
+                "sapphire-heritage" => "adaptive",
+                _ => "dark",
+            };
+            s.set_theme(next_theme);
+        });
+
+    let settings_btn = el()
+        .key("settings-btn")
+        .size(38.0, 38.0)
+        .radius(19.0)
+        .center()
+        .fill(t.hover)
+        .border(1.0, t.border)
+        .child(icon(&icons::SETTINGS, 20.0).color(t.heading))
+        .on_press(|s: &mut AppState| {
+            s.show_settings = !s.show_settings;
+        });
+
+    let signin_btn = row()
+        .key("signin-btn")
+        .h(36.0)
+        .radius(18.0)
+        .px(18.0)
+        .fill(t.brand)
+        .center()
+        .child(
+            text(if let Some(acc) = &s.account {
+                acc.name.as_str()
+            } else {
+                "Sign in"
+            })
+            .font(typo::LABEL)
+            .color(t.brand_text),
+        )
+        .on_press(|s: &mut AppState| {
+            s.show_settings = true;
+            s.settings_tab = crate::state::SettingsTab::Account;
+        });
+
+    let right = row()
+        .w(220.0)
+        .justify_end()
+        .center_y()
+        .gap(10.0)
+        .child(theme_btn)
+        .child(settings_btn)
+        .child(signin_btn);
+
+    // Full 68px header bar
+    row()
+        .key("top-header")
+        .w_full()
+        .h(68.0)
+        .fill(t.surface)
+        .border(1.0, t.border)
+        .px(24.0)
+        .justify_between()
+        .center_y()
+        .child(left)
+        .child(search_bar)
+        .child(right)
+}

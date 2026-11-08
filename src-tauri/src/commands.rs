@@ -2,12 +2,13 @@ use crate::audio_player::{AudioPlayer, PlayerStatus};
 use crate::config::{AppConfig, ConfigManager};
 use crate::discord::{DiscordManager, SongPayload};
 use crate::innertube::{
-    AccountProfile, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload,
-    SidebarPlaylist, TrackItem,
+    AccountProfile, ArtistDetail, HomeSection, InnertubeClient, PlaylistDetail,
+    SearchResultPayload, SidebarPlaylist, TrackItem,
 };
 use crate::lrclib::{LrclibClient, LyricsPayload};
 use crate::tuna::TunaManager;
 use log::info;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -91,65 +92,130 @@ pub async fn get_lyrics(
     artist: Option<String>,
     album: Option<String>,
     duration: Option<f64>,
+    source: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<LyricsPayload, String> {
+    let req_source = source.as_deref().unwrap_or("auto").to_lowercase();
     info!(
-        "[Command] Fetching lyrics for {} (title: {:?}, artist: {:?})",
-        video_id, title, artist
+        "[Command] Fetching lyrics for {} (title: {:?}, artist: {:?}, source: {})",
+        video_id, title, artist, req_source
     );
 
-    // 0. Bounded In-Memory Cache check
-    if let Some(cached) = state.lrclib.get_cached(&video_id) {
-        return Ok(cached);
+    // 0. Bounded In-Memory Cache check (only for default auto lookup)
+    if req_source == "auto" {
+        if let Some(cached) = state.lrclib.get_cached(&video_id) {
+            return Ok(cached);
+        }
     }
 
-    // 1. Tier 1: Try LRCLIB for crowdsourced time-synced lyrics
-    if let (Some(t), Some(a)) = (title.as_deref(), artist.as_deref()) {
-        if !t.trim().is_empty() {
-            if let Some(payload) = state
-                .lrclib
-                .fetch_synced_lyrics(t, a, album.as_deref(), duration)
-                .await
-            {
+    let t_opt = title.as_deref();
+    let a_opt = artist.as_deref();
+
+    // 1. Tier 1: Try LRCLIB
+    if req_source == "auto" || req_source == "lrclib" {
+        if let (Some(t), Some(a)) = (t_opt, a_opt) {
+            if !t.trim().is_empty() {
+                if let Some(mut payload) = state
+                    .lrclib
+                    .fetch_synced_lyrics(t, a, album.as_deref(), duration)
+                    .await
+                {
+                    payload.available_sources = vec![
+                        "LRCLIB".to_string(),
+                        "Better-Lyrics".to_string(),
+                        "YouTube Captions".to_string(),
+                        "YouTube Music".to_string(),
+                    ];
+                    if req_source == "auto" {
+                        state.lrclib.set_cached(&video_id, payload.clone());
+                    }
+                    return Ok(payload);
+                }
+            }
+        }
+    }
+
+    // 2. Tier 2: Try Better-Lyrics
+    if req_source == "auto" || req_source == "betterlyrics" || req_source == "better-lyrics" {
+        if let (Some(t), Some(a)) = (t_opt, a_opt) {
+            if !t.trim().is_empty() {
+                if let Some(mut payload) = state.lrclib.fetch_better_lyrics(t, a).await {
+                    payload.available_sources = vec![
+                        "LRCLIB".to_string(),
+                        "Better-Lyrics".to_string(),
+                        "YouTube Captions".to_string(),
+                        "YouTube Music".to_string(),
+                    ];
+                    if req_source == "auto" {
+                        state.lrclib.set_cached(&video_id, payload.clone());
+                    }
+                    return Ok(payload);
+                }
+            }
+        }
+    }
+
+    // 3. Tier 3: Try YouTube video/song Captions & ASR auto-generated captions
+    if req_source == "auto" || req_source == "youtube" || req_source == "youtube captions" {
+        if let Some(mut payload) = state.innertube.get_captions_lyrics(&video_id).await {
+            payload.available_sources = vec![
+                "LRCLIB".to_string(),
+                "Better-Lyrics".to_string(),
+                "YouTube Captions".to_string(),
+                "YouTube Music".to_string(),
+            ];
+            if req_source == "auto" {
                 state.lrclib.set_cached(&video_id, payload.clone());
+            }
+            return Ok(payload);
+        }
+    }
+
+    // 4. Tier 4: Try YouTube Music Innertube plain lyrics
+    if req_source == "auto" || req_source == "youtube music" {
+        if let Ok(plain) = state.innertube.get_lyrics(&video_id).await {
+            if !plain.trim().is_empty()
+                && !plain.starts_with("Lyrics are not available")
+                && !plain.starts_with("No lyrics found")
+            {
+                let payload = LyricsPayload {
+                    synced: false,
+                    source: "YouTube Music".to_string(),
+                    instrumental: false,
+                    lines: Vec::new(),
+                    plain_lyrics: plain,
+                    available_sources: vec![
+                        "LRCLIB".to_string(),
+                        "Better-Lyrics".to_string(),
+                        "YouTube Captions".to_string(),
+                        "YouTube Music".to_string(),
+                    ],
+                };
+                if req_source == "auto" {
+                    state.lrclib.set_cached(&video_id, payload.clone());
+                }
                 return Ok(payload);
             }
         }
     }
 
-    // 2. Tier 2: Try YouTube video/song Captions & ASR auto-generated captions
-    if let Some(payload) = state.innertube.get_captions_lyrics(&video_id).await {
-        state.lrclib.set_cached(&video_id, payload.clone());
-        return Ok(payload);
-    }
-
-    // 3. Tier 3: Try YouTube Music Innertube plain lyrics
-    if let Ok(plain) = state.innertube.get_lyrics(&video_id).await {
-        if !plain.trim().is_empty()
-            && !plain.starts_with("Lyrics are not available")
-            && !plain.starts_with("No lyrics found")
-        {
-            let payload = LyricsPayload {
-                synced: false,
-                source: "YouTube Music".to_string(),
-                instrumental: false,
-                lines: Vec::new(),
-                plain_lyrics: plain,
-            };
-            state.lrclib.set_cached(&video_id, payload.clone());
-            return Ok(payload);
-        }
-    }
-
-    // 4. Clean empty payload
+    // 5. Clean empty payload
     let empty_payload = LyricsPayload {
         synced: false,
         source: "None".to_string(),
         instrumental: false,
         lines: Vec::new(),
         plain_lyrics: "Lyrics are not available for this track.".to_string(),
+        available_sources: vec![
+            "LRCLIB".to_string(),
+            "Better-Lyrics".to_string(),
+            "YouTube Captions".to_string(),
+            "YouTube Music".to_string(),
+        ],
     };
-    state.lrclib.set_cached(&video_id, empty_payload.clone());
+    if req_source == "auto" {
+        state.lrclib.set_cached(&video_id, empty_payload.clone());
+    }
     Ok(empty_payload)
 }
 
@@ -545,4 +611,93 @@ pub fn logout(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> 
     state.config_mgr.save(cfg);
     let _ = app.emit("auth_changed", ());
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_artist_detail(
+    browse_id: String,
+    state: State<'_, AppState>,
+) -> Result<ArtistDetail, String> {
+    info!("[Command] Fetching artist detail for {}", browse_id);
+    state.innertube.get_artist_detail(&browse_id).await
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub has_update: bool,
+    pub release_notes: String,
+    pub release_url: String,
+    pub download_url: Option<String>,
+}
+
+#[tauri::command]
+pub async fn check_for_updates() -> Result<UpdateInfo, String> {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let client = reqwest::Client::builder()
+        .user_agent("Cremeplay-App")
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
+
+    let resp = client
+        .get("https://api.github.com/repos/asheohto/cremeplay/releases/latest")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("GitHub API returned status {}", resp.status()));
+    }
+
+    let val: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let tag = val["tag_name"].as_str().unwrap_or("").trim();
+    let clean_tag = tag.strip_prefix('v').unwrap_or(tag).to_string();
+    let release_notes = val["body"].as_str().unwrap_or("").to_string();
+    let release_url = val["html_url"].as_str().unwrap_or("https://github.com/asheohto/cremeplay/releases").to_string();
+
+    let mut download_url = None;
+    if let Some(assets) = val["assets"].as_array() {
+        for a in assets {
+            let name = a["name"].as_str().unwrap_or("");
+            if name.ends_with(".exe") {
+                download_url = a["browser_download_url"].as_str().map(|s| s.to_string());
+                if name.contains("setup") {
+                    break;
+                }
+            }
+        }
+    }
+
+    let has_update = is_newer_version(&clean_tag, &current_version);
+
+    Ok(UpdateInfo {
+        current_version,
+        latest_version: clean_tag,
+        has_update,
+        release_notes,
+        release_url,
+        download_url,
+    })
+}
+
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    let parse_parts = |s: &str| -> Vec<u32> {
+        s.split('.')
+            .filter_map(|p| p.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok())
+            .collect()
+    };
+    let l_parts = parse_parts(latest);
+    let c_parts = parse_parts(current);
+    for (l, c) in l_parts.iter().zip(c_parts.iter()) {
+        if l > c {
+            return true;
+        }
+        if l < c {
+            return false;
+        }
+    }
+    l_parts.len() > c_parts.len()
 }

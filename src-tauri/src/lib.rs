@@ -11,11 +11,12 @@ mod tuna;
 
 use audio_player::AudioPlayer;
 use commands::{
-    get_account_profile, get_explore_feed, get_home_feed, get_liked_songs, get_lyrics,
-    get_playlist_or_album, get_player_status, get_radio_queue, get_search_suggestions,
-    get_settings, get_user_playlists, logout, on_login_complete, on_playback_state_change,
-    on_song_change, open_login_window, play_track, search_music, set_auth_cookies, set_volume,
-    toggle_playback, update_playback_progress, update_settings, AppState,
+    check_for_updates, get_account_profile, get_artist_detail, get_explore_feed, get_home_feed,
+    get_liked_songs, get_lyrics, get_playlist_or_album, get_player_status, get_radio_queue,
+    get_search_suggestions, get_settings, get_user_playlists, logout, on_login_complete,
+    on_playback_state_change, on_song_change, open_login_window, play_track, search_music,
+    set_auth_cookies, set_volume, toggle_playback, update_playback_progress, update_settings,
+    AppState,
 };
 use config::ConfigManager;
 use discord::DiscordManager;
@@ -126,6 +127,7 @@ pub fn run() {
             get_lyrics,
             get_radio_queue,
             get_playlist_or_album,
+            get_artist_detail,
             get_user_playlists,
             play_track,
             toggle_playback,
@@ -133,6 +135,7 @@ pub fn run() {
             get_player_status,
             get_settings,
             update_settings,
+            check_for_updates,
             open_login_window,
             on_login_complete,
             set_auth_cookies,

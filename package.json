@@ -8,7 +8,12 @@
     "build:frontend": "pnpm --filter cremeplay-frontend build",
     "dev": "pnpm build:frontend && tauri dev",
     "build": "pnpm build:frontend && tauri build",
-    "build:debug": "pnpm build:frontend && tauri build --debug"
+    "build:debug": "pnpm build:frontend && tauri build --debug",
+    "rune": "cargo run --bin cremeplay",
+    "rune:release": "cargo run --release --bin cremeplay",
+    "rune:build": "cargo build --release --bin cremeplay",
+    "rune:snap": "cargo run --release --bin cremeplay -- --snap snap.png --at 0.5",
+    "rune:tree": "cargo run --release --bin cremeplay -- --tree tree.json"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1"

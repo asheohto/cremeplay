@@ -15,10 +15,12 @@ pub struct LyricLine {
 #[serde(rename_all = "camelCase")]
 pub struct LyricsPayload {
     pub synced: bool,
-    pub source: String, // "LRCLIB" | "YouTube Captions" | "YouTube Music" | "None"
+    pub source: String, // "LRCLIB" | "Better-Lyrics" | "YouTube Captions" | "YouTube Music" | "Custom" | "None"
     pub instrumental: bool,
     pub lines: Vec<LyricLine>,
     pub plain_lyrics: String,
+    #[serde(default)]
+    pub available_sources: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -222,6 +224,7 @@ impl LrclibClient {
                     text: "♪ Instrumental ♪".to_string(),
                 }],
                 plain_lyrics: "Instrumental".to_string(),
+                available_sources: vec!["LRCLIB".to_string()],
             });
         }
 
@@ -242,6 +245,7 @@ impl LrclibClient {
                     instrumental: false,
                     lines,
                     plain_lyrics: plain,
+                    available_sources: vec!["LRCLIB".to_string()],
                 });
             }
         }
@@ -254,11 +258,53 @@ impl LrclibClient {
                     instrumental: false,
                     lines: Vec::new(),
                     plain_lyrics: plain,
+                    available_sources: vec!["LRCLIB".to_string()],
                 });
             }
         }
 
         None
+    }
+
+    pub async fn fetch_better_lyrics(
+        &self,
+        title: &str,
+        artist: &str,
+    ) -> Option<LyricsPayload> {
+        let clean_title = clean_track_title(title);
+        let clean_artist = clean_artist_name(artist);
+        if clean_title.trim().is_empty() {
+            return None;
+        }
+
+        let params = [("a", clean_artist.as_str()), ("s", clean_title.as_str())];
+        let url = Url::parse_with_params("https://api.betterlyrics.org/getLyrics", &params).ok()?;
+        let resp = self.client.get(url)
+            .timeout(Duration::from_millis(2500))
+            .send()
+            .await
+            .ok()?;
+
+        if !resp.status().is_success() {
+            return None;
+        }
+
+        let body: serde_json::Value = resp.json().await.ok()?;
+        let ttml = body.get("ttml").and_then(|t| t.as_str())?;
+        let lines = parse_ttml(ttml);
+        if lines.is_empty() {
+            return None;
+        }
+
+        let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+        Some(LyricsPayload {
+            synced: true,
+            source: "Better-Lyrics".to_string(),
+            instrumental: false,
+            lines,
+            plain_lyrics: plain,
+            available_sources: vec!["Better-Lyrics".to_string()],
+        })
     }
 }
 
@@ -500,6 +546,87 @@ fn parse_timestamp(tag: &str) -> Option<f64> {
     } else {
         None
     }
+}
+
+pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
+    let mut lines = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(p_start) = ttml_text[cursor..].find("<p ") {
+        let abs_start = cursor + p_start;
+        let end_tag_rel = ttml_text[abs_start..].find("</p>");
+        if end_tag_rel.is_none() {
+            break;
+        }
+        let abs_end = abs_start + end_tag_rel.unwrap();
+        let tag_and_content = &ttml_text[abs_start..abs_end];
+        cursor = abs_end + 4;
+
+        if let Some(begin_idx) = tag_and_content.find("begin=\"") {
+            let val_start = begin_idx + 7;
+            if let Some(quote_end) = tag_and_content[val_start..].find('"') {
+                let time_str = &tag_and_content[val_start..val_start + quote_end];
+                if let Some(time_sec) = parse_ttml_timestamp(time_str) {
+                    if let Some(tag_close) = tag_and_content.find('>') {
+                        let inner_xml = &tag_and_content[tag_close + 1..];
+                        let clean_text = strip_xml_tags_and_entities(inner_xml);
+                        let final_line = clean_lrc_line(&clean_text);
+                        lines.push(LyricLine {
+                            time_sec: (time_sec * 100.0).round() / 100.0,
+                            text: final_line,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    lines.sort_by(|a, b| a.time_sec.partial_cmp(&b.time_sec).unwrap_or(std::cmp::Ordering::Equal));
+    lines
+}
+
+fn parse_ttml_timestamp(raw: &str) -> Option<f64> {
+    let s = raw.trim().trim_end_matches('s');
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() == 3 {
+        let h: f64 = parts[0].trim().parse().ok()?;
+        let m: f64 = parts[1].trim().parse().ok()?;
+        let sec: f64 = parts[2].trim().parse().ok()?;
+        Some(h * 3600.0 + m * 60.0 + sec)
+    } else if parts.len() == 2 {
+        let m: f64 = parts[0].trim().parse().ok()?;
+        let sec: f64 = parts[1].trim().parse().ok()?;
+        Some(m * 60.0 + sec)
+    } else if parts.len() == 1 {
+        parts[0].trim().parse::<f64>().ok()
+    } else {
+        None
+    }
+}
+
+fn strip_xml_tags_and_entities(raw: &str) -> String {
+    let mut res = String::with_capacity(raw.len());
+    let mut in_tag = false;
+
+    for ch in raw.chars() {
+        if ch == '<' {
+            in_tag = true;
+        } else if ch == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            res.push(ch);
+        }
+    }
+
+    let decoded = res
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">");
+
+    decoded.trim().to_string()
 }
 
 #[cfg(test)]

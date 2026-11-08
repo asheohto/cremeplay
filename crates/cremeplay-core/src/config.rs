@@ -1,0 +1,186 @@
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppConfig {
+    pub adblock: bool,
+    pub sponsorblock: bool,
+    pub discord_rpc: bool,
+    #[serde(default = "default_true")]
+    pub tuna_obs: bool,
+    pub media_controls: bool,
+    pub close_to_tray: bool,
+    #[serde(default = "default_false")]
+    pub autoplay: bool,
+    #[serde(default = "default_volume")]
+    pub volume: f32,
+    #[serde(default = "default_true")]
+    pub animations: bool,
+    #[serde(default = "default_true")]
+    pub romanize_lyrics: bool,
+    #[serde(default = "default_romanize_mode")]
+    pub romanize_mode: String,
+    #[serde(default = "default_false")]
+    pub enable_video_switcher: bool,
+    #[serde(default = "default_video_quality")]
+    pub video_quality: String,
+    #[serde(default = "default_zero_i32")]
+    pub lyrics_offset_ms: i32,
+    #[serde(default = "default_auto_source")]
+    pub lyrics_source: String,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    pub auth_cookies: Option<String>,
+    pub user_name: Option<String>,
+    pub user_avatar: Option<String>,
+    #[serde(default)]
+    pub taste_artists: Vec<String>,
+}
+
+fn default_theme() -> String {
+    "dark".to_string()
+}
+
+fn default_zero_i32() -> i32 {
+    0
+}
+
+fn default_auto_source() -> String {
+    "auto".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_false() -> bool {
+    false
+}
+
+fn default_volume() -> f32 {
+    1.0
+}
+
+fn default_romanize_mode() -> String {
+    "subtext".to_string()
+}
+
+fn default_video_quality() -> String {
+    "auto".to_string()
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            adblock: true,
+            sponsorblock: true,
+            discord_rpc: true,
+            tuna_obs: true,
+            media_controls: true,
+            close_to_tray: true,
+            autoplay: false,
+            volume: 1.0,
+            animations: true,
+            romanize_lyrics: true,
+            romanize_mode: "subtext".to_string(),
+            enable_video_switcher: false,
+            video_quality: "auto".to_string(),
+            lyrics_offset_ms: 0,
+            lyrics_source: "auto".to_string(),
+            theme: "dark".to_string(),
+            auth_cookies: None,
+            user_name: None,
+            user_avatar: None,
+            taste_artists: Vec::new(),
+        }
+    }
+}
+
+pub struct ConfigManager {
+    pub config: Arc<Mutex<AppConfig>>,
+    path: PathBuf,
+}
+
+impl ConfigManager {
+    pub fn new() -> Self {
+        let config_dir = dirs::config_dir()
+            .map(|d| d.join("cremeplay"))
+            .unwrap_or_else(|| PathBuf::from("."));
+        let _ = fs::create_dir_all(&config_dir);
+        let path = config_dir.join("config.json");
+
+        let loaded = if path.exists() {
+            fs::read_to_string(&path)
+                .ok()
+                .and_then(|data| serde_json::from_str::<AppConfig>(&data).ok())
+                .unwrap_or_default()
+        } else {
+            AppConfig::default()
+        };
+
+        Self {
+            config: Arc::new(Mutex::new(loaded)),
+            path,
+        }
+    }
+
+    pub fn get(&self) -> AppConfig {
+        self.config.lock().unwrap().clone()
+    }
+
+    pub fn save(&self, new_config: AppConfig) {
+        if let Ok(mut cfg) = self.config.lock() {
+            *cfg = new_config.clone();
+            if let Ok(data) = serde_json::to_string_pretty(&new_config) {
+                let _ = fs::write(&self.path, data);
+            }
+        }
+    }
+
+    pub fn save_volume(&self, volume: f32) {
+        if let Ok(mut cfg) = self.config.lock() {
+            cfg.volume = volume;
+            let cloned = cfg.clone();
+            drop(cfg);
+            self.save(cloned);
+        }
+    }
+
+    pub fn record_artists_from_string(&self, artist_str: &str) {
+        let clean = artist_str.trim();
+        if clean.is_empty() || clean.eq_ignore_ascii_case("unknown") {
+            return;
+        }
+
+        let lower = clean.to_lowercase();
+        let main = if let Some(idx) = lower.find(" feat.") {
+            &clean[..idx]
+        } else if let Some(idx) = lower.find(" ft.") {
+            &clean[..idx]
+        } else {
+            clean
+        };
+
+        let parts: Vec<&str> = main.split(&[',', '&'][..]).map(|s| s.trim()).filter(|s| s.len() >= 2).collect();
+        if parts.is_empty() {
+            return;
+        }
+
+        let updated = {
+            let mut cfg = self.config.lock().unwrap();
+            for part in parts {
+                if part.eq_ignore_ascii_case("unknown") {
+                    continue;
+                }
+                cfg.taste_artists.retain(|a| !a.eq_ignore_ascii_case(part));
+                cfg.taste_artists.insert(0, part.to_string());
+            }
+            cfg.taste_artists.truncate(25);
+            cfg.clone()
+        };
+        self.save(updated);
+    }
+}

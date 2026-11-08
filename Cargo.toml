@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "crates/cremeplay-core",
+    "crates/cremeplay-app",
+]
+default-members = ["crates/cremeplay-app"]
+resolver = "2"

@@ -6,24 +6,45 @@ This document transfers architectural context, constraints, low-memory guideline
 
 ## 1. Project Mission & North Star: Zero Bloat, Ultra-Low Memory
 
-Cremeplay is an ultra-fast, debloated YouTube Music desktop client built with **Tauri v2** and **Rust**.
+Cremeplay is an ultra-fast, debloated YouTube Music desktop client available in two architectures:
+1. **Rune Webviewless Architecture** (`crates/`): 100% native Rust GPU UI rendering via Rune (`wgpu`, `taffy`, `parley`) with Rodio/Symphonia audio and zero Chromium/WebView2 overhead (**~25–35 MB RAM** active playback).
+2. **Tauri v2 Desktop Architecture** (`src-tauri/` & `frontend/`): Vanilla TypeScript + Vite frontend running under WebView2 with process trimming (**~50 MB tray / ~140 MB open window**).
 
-### Memory Budget
-* **Tray / Background**: **~50–60 MB RAM**
-* **Open Window / Active Playback**: **~140–160 MB RAM**
-* *Comparison*: Electron wrappers (Pear, YouTube Music Desktop) consume **450–850 MB+ RAM**.
-
-### Rules for Any Future Code Changes
-1. **Never introduce heavy frontend frameworks** (No React, Vue, Svelte, or Virtual-DOM). Vanilla TypeScript + Vite compiles to <100 KB JS and eliminates virtual DOM heap overhead.
-2. **Never render unbounded DOM lists**. Virtualize or cap queues/search results to visible items.
-3. **No JavaScript animation loops** (No GSAP, Framer Motion, or requestAnimationFrame intervals). Rely 100% on GPU-composited CSS properties (`transform`, `opacity`).
-4. **Preserve the process trimming job**: Working set memory trimming in `process_job.rs` regularly purges inactive Chromium memory pools.
-5. **Video is on-demand only**: Never play or render video streams in the background when the user is in "Song mode" (audio-only).
+### Rune Memory & Performance Budget
+* **RAM footprint**: **~25–35 MB RAM** (Zero WebView2, zero Chromium processes).
+* **Launch latency**: **< 30 ms** first frame.
+* **Frame rate**: Continuous 60 FPS GPU-accelerated rendering.
 
 ---
 
 ## 2. Architecture Overview
 
+### A. Rune Webviewless Architecture (`crates/`)
+```
+cremeplay/
+├── crates/
+│   ├── cremeplay-core/           # Pure-Rust backend logic
+│   │   ├── src/
+│   │   │   ├── innertube.rs      # Innertube API + RustyPipe cipher & n-token resolution
+│   │   │   ├── audio_player.rs   # Rodio + Symphonia native WASAPI audio streaming engine
+│   │   │   ├── lrclib.rs         # LRCLIB synced lyrics client with bounded caching
+│   │   │   ├── discord.rs        # Discord Rich Presence listening activity
+│   │   │   ├── tuna.rs           # OBS Tuna local stream overlay server (port 1608)
+│   │   │   ├── sponsorblock.rs   # SponsorBlock segment auto-skip client
+│   │   │   └── config.rs         # Non-blocking JSON settings manager
+│   │   └── Cargo.toml
+│   └── cremeplay-app/            # Native Rune GPU Desktop Client
+│       ├── src/
+│       │   ├── main.rs           # AppSpec setup, 30fps poll ticker, keyboard hooks
+│       │   ├── state.rs          # Centralized AppState, navigation, playback state
+│       │   ├── theme.rs          # Matcha, dark, and light color tokens & typography
+│       │   ├── icons.rs          # Hugeicons vector stroke paths
+│       │   ├── agent_server.rs   # Embedded local agent server (127.0.0.1:9099)
+│       │   └── components/       # Header, sidebar, player_bar, search, modals
+│       └── Cargo.toml
+```
+
+### B. Tauri v2 Architecture (`src-tauri/` & `frontend/`)
 ```
 cremeplay/
 ├── frontend/                     # Vanilla TypeScript + Vite frontend
@@ -31,25 +52,25 @@ cremeplay/
 │   ├── public/dict/              # Kuroshiro / Kuromoji dictionary files for Japanese
 │   ├── src/
 │   │   ├── main.ts               # Core UI controller, player events, state
-│   │   ├── style.css             # Fluid styling, GPU transitions, custom themes
-│   │   └── shims/                # Lightweight browser polyfills
-│   └── vite.config.ts            # Vite bundler configuration
+│   │   └── style.css             # Fluid styling, GPU transitions, custom themes
 └── src-tauri/                    # Native Rust Backend (Tauri v2)
-    ├── src/
-    │   ├── main.rs / lib.rs      # App lifecycle, setup, command registration
-    │   ├── commands.rs           # Tauri IPC handlers (`#[tauri::command]`)
-    │   ├── innertube.rs          # Pure-Rust YouTube Music API client with SAPISID auth
-    │   ├── lrclib.rs             # LRCLIB crowdsourced time-synced lyrics client
-    │   ├── audio_player.rs       # Native WASAPI audio engine (rodio / symphonia)
-    │   ├── config.rs             # Non-blocking JSON settings manager
-    │   ├── process_job.rs        # Windows Job Object & Working Set trimmer
-    │   ├── discord.rs            # Discord Rich Presence ("Listening" activity)
-    │   ├── tuna.rs               # OBS Tuna local stream overlay server (port 1608)
-    │   ├── sponsorblock.rs       # SponsorBlock segment auto-skip client
-    │   └── tray.rs               # System tray icon and context menu
-    ├── Cargo.toml                # Rust dependencies
-    └── tauri.conf.json           # Tauri v2 window and bundle configuration
 ```
+
+---
+
+## 3. Live Agent Debugging & Testing
+
+### A. Embedded Local Agent Server (`http://127.0.0.1:9099`)
+Cremeplay embeds an asynchronous HTTP agent server in `cremeplay-app` powered by `AppHandle<AppState>`:
+* `GET /api/ping`: Server health and version check.
+* `GET /api/status`: Real-time player status, track metadata, queue length, active views, and modal flags.
+* `POST /api/action`: Control actions executed safely on the GUI UI thread (`play`, `pause`, `toggle`, `next`, `prev`, `seek`, `volume`, `search`, `view`, `toggle_drawer`, `toggle_now_playing`, `toggle_settings`).
+
+### B. Headless Rune Harness
+Rune supports deterministic CLI testing flags:
+* `cremeplay.exe --tree tree.json`: Dump full semantic UI layout and element hierarchy.
+* `cremeplay.exe --snap snap.png --at <seconds> [--crop <key>]`: Pixel-perfect GPU snapshot.
+* `cremeplay.exe --script script.json`: Automated headless user interaction replay (taps, drags, typing).
 
 ---
 
@@ -162,3 +183,4 @@ Before merging or releasing any new feature:
 - [ ] **Referrer Policy**: Is `<meta name="referrer" content="unsafe-url" />` intact?
 - [ ] **Settings Non-blocking**: Are all settings writes debounced and non-blocking?
 - [ ] **Clean Build**: Does `npm run build` in `frontend/` and `cargo check --manifest-path src-tauri/Cargo.toml` succeed with zero errors?
+

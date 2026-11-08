@@ -73,7 +73,48 @@ pub struct SearchTopResult {
 pub struct SearchResultPayload {
     pub top_result: Option<SearchTopResult>,
     pub songs: Vec<TrackItem>,
+    pub albums: Vec<SearchTopResult>,
+    pub artists: Vec<SearchTopResult>,
+    pub playlists: Vec<SearchTopResult>,
     pub library_tracks: Vec<TrackItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistSectionItem {
+    pub title: String,
+    pub subtitle: String,
+    pub browse_id: Option<String>,
+    pub video_id: Option<String>,
+    pub artwork_url: String,
+    pub year: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistSection {
+    pub title: String,
+    pub items: Vec<ArtistSectionItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistDetail {
+    pub browse_id: String,
+    pub name: String,
+    pub description: String,
+    pub avatar_url: String,
+    pub subscribers: String,
+    pub top_songs: Vec<TrackItem>,
+    pub sections: Vec<ArtistSection>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchItemVariant {
+    Song(TrackItem),
+    Album(SearchTopResult),
+    Artist(SearchTopResult),
+    Playlist(SearchTopResult),
 }
 
 pub struct InnertubeClient {
@@ -202,7 +243,19 @@ impl InnertubeClient {
         }
     }
 
-    pub async fn search_catalog(&self, query: &str) -> Result<(Option<SearchTopResult>, Vec<TrackItem>), String> {
+    pub async fn search_catalog(
+        &self,
+        query: &str,
+    ) -> Result<
+        (
+            Option<SearchTopResult>,
+            Vec<TrackItem>,
+            Vec<SearchTopResult>,
+            Vec<SearchTopResult>,
+            Vec<SearchTopResult>,
+        ),
+        String,
+    > {
         let url = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false";
         let body = json!({
             "context": {
@@ -224,6 +277,9 @@ impl InnertubeClient {
 
         let mut top_result = None;
         let mut songs = Vec::new();
+        let mut albums = Vec::new();
+        let mut artists = Vec::new();
+        let mut playlists = Vec::new();
 
         let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
             ["content"]["sectionListRenderer"]["contents"]
@@ -264,17 +320,18 @@ impl InnertubeClient {
                     }
                 }
 
-                if let Some(items) = section["musicShelfRenderer"]["contents"].as_array() {
+                let items = section["musicShelfRenderer"]["contents"].as_array()
+                    .or_else(|| section["itemSectionRenderer"]["contents"].as_array());
+
+                if let Some(items) = items {
                     for item in items {
-                        if let Some(track) = Self::parse_music_shelf_item(item) {
-                            songs.push(track);
-                        }
-                    }
-                }
-                if let Some(items) = section["itemSectionRenderer"]["contents"].as_array() {
-                    for item in items {
-                        if let Some(track) = Self::parse_music_shelf_item(item) {
-                            songs.push(track);
+                        if let Some(parsed) = Self::parse_search_item_variant(item) {
+                            match parsed {
+                                SearchItemVariant::Song(t) => songs.push(t),
+                                SearchItemVariant::Album(a) => albums.push(a),
+                                SearchItemVariant::Artist(ar) => artists.push(ar),
+                                SearchItemVariant::Playlist(p) => playlists.push(p),
+                            }
                         }
                     }
                 }
@@ -285,17 +342,17 @@ impl InnertubeClient {
             let direct_shelves = val["contents"]["sectionListRenderer"]["contents"].as_array();
             if let Some(shelves) = direct_shelves {
                 for shelf in shelves {
-                    if let Some(items) = shelf["musicShelfRenderer"]["contents"].as_array() {
+                    let items = shelf["musicShelfRenderer"]["contents"].as_array()
+                        .or_else(|| shelf["itemSectionRenderer"]["contents"].as_array());
+                    if let Some(items) = items {
                         for item in items {
-                            if let Some(track) = Self::parse_music_shelf_item(item) {
-                                songs.push(track);
-                            }
-                        }
-                    }
-                    if let Some(items) = shelf["itemSectionRenderer"]["contents"].as_array() {
-                        for item in items {
-                            if let Some(track) = Self::parse_music_shelf_item(item) {
-                                songs.push(track);
+                            if let Some(parsed) = Self::parse_search_item_variant(item) {
+                                match parsed {
+                                    SearchItemVariant::Song(t) => songs.push(t),
+                                    SearchItemVariant::Album(a) => albums.push(a),
+                                    SearchItemVariant::Artist(ar) => artists.push(ar),
+                                    SearchItemVariant::Playlist(p) => playlists.push(p),
+                                }
                             }
                         }
                     }
@@ -303,7 +360,7 @@ impl InnertubeClient {
             }
         }
 
-        Ok((top_result, songs))
+        Ok((top_result, songs, albums, artists, playlists))
     }
 
     pub async fn search_library(&self, query: &str) -> Result<Vec<TrackItem>, String> {
@@ -353,19 +410,24 @@ impl InnertubeClient {
             self.search_library(query)
         );
 
-        let (top_result, songs) = catalog_res.unwrap_or_default();
+        let (top_result, songs, albums, artists, playlists) = catalog_res.unwrap_or_else(|_| (None, Vec::new(), Vec::new(), Vec::new(), Vec::new()));
         let library_tracks = library_res.unwrap_or_default();
 
         info!(
-            "[Innertube] Search for '{}' returned {} catalog songs and {} library songs",
+            "[Innertube] Search for '{}' returned {} songs, {} albums, {} artists, {} playlists",
             query,
             songs.len(),
-            library_tracks.len()
+            albums.len(),
+            artists.len(),
+            playlists.len()
         );
 
         Ok(SearchResultPayload {
             top_result,
             songs,
+            albums,
+            artists,
+            playlists,
             library_tracks,
         })
     }
@@ -983,6 +1045,161 @@ impl InnertubeClient {
         Err("Could not retrieve playable audio stream URL".to_string())
     }
 
+    fn parse_search_item_variant(item: &Value) -> Option<SearchItemVariant> {
+        let renderer = &item["musicResponsiveListItemRenderer"];
+        if renderer.is_object() {
+            let flex_columns = renderer["flexColumns"].as_array()?;
+            let flex0 = flex_columns.get(0)?;
+            let flex0_runs = flex0["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"].as_array()?;
+            let title = flex0_runs.get(0)?["text"].as_str()?.to_string();
+
+            let browse_id = flex0_runs
+                .get(0)
+                .and_then(|r| r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str())
+                .or_else(|| renderer["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str())
+                .map(|s| s.to_string());
+
+            let page_type = flex0_runs
+                .get(0)
+                .and_then(|r| {
+                    r["navigationEndpoint"]["browseEndpoint"]["browseEndpointContextSupportedConfigs"]
+                        ["browseEndpointContextMusicConfig"]["pageType"]
+                        .as_str()
+                })
+                .unwrap_or("");
+
+            let artwork_url = renderer["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+                .as_array()
+                .and_then(|t| t.last())
+                .and_then(|t| t["url"].as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let runs_col1 = flex_columns
+                .get(1)
+                .and_then(|c| c["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"].as_array());
+
+            let subtitle = runs_col1
+                .map(|arr| arr.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join(""))
+                .unwrap_or_default();
+
+            let first_type_tag = runs_col1
+                .and_then(|arr| arr.get(0))
+                .and_then(|r| r["text"].as_str())
+                .unwrap_or("")
+                .trim()
+                .to_lowercase();
+
+            if page_type == "MUSIC_PAGE_TYPE_ARTIST"
+                || first_type_tag == "artist"
+                || browse_id.as_deref().map_or(false, |b| b.starts_with("UC"))
+            {
+                return Some(SearchItemVariant::Artist(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Artist".to_string(),
+                }));
+            }
+
+            if page_type == "MUSIC_PAGE_TYPE_ALBUM"
+                || first_type_tag == "album"
+                || first_type_tag == "single"
+                || first_type_tag == "ep"
+                || browse_id.as_deref().map_or(false, |b| b.starts_with("MPREb"))
+            {
+                return Some(SearchItemVariant::Album(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Album".to_string(),
+                }));
+            }
+
+            if page_type == "MUSIC_PAGE_TYPE_PLAYLIST"
+                || first_type_tag == "playlist"
+                || browse_id
+                    .as_deref()
+                    .map_or(false, |b| b.starts_with("VL") || b.starts_with("PL"))
+            {
+                return Some(SearchItemVariant::Playlist(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Playlist".to_string(),
+                }));
+            }
+
+            if let Some(track) = Self::parse_music_shelf_item(item) {
+                return Some(SearchItemVariant::Song(track));
+            }
+        }
+
+        let two_row = &item["musicTwoRowItemRenderer"];
+        if two_row.is_object() {
+            let title = two_row["title"]["runs"][0]["text"].as_str()?.to_string();
+            let browse_id = two_row["navigationEndpoint"]["browseEndpoint"]["browseId"]
+                .as_str()
+                .map(|s| s.to_string());
+            let page_type = two_row["navigationEndpoint"]["browseEndpoint"]
+                ["browseEndpointContextSupportedConfigs"]["browseEndpointContextMusicConfig"]["pageType"]
+                .as_str()
+                .unwrap_or("");
+            let subtitle = two_row["subtitle"]["runs"]
+                .as_array()
+                .map(|arr| arr.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join(""))
+                .unwrap_or_default();
+            let artwork_url = two_row["thumbnailRenderer"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+                .as_array()
+                .and_then(|arr| arr.last())
+                .and_then(|t| t["url"].as_str())
+                .unwrap_or("")
+                .to_string();
+
+            if page_type == "MUSIC_PAGE_TYPE_ARTIST" || subtitle.to_lowercase().contains("artist") {
+                return Some(SearchItemVariant::Artist(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Artist".to_string(),
+                }));
+            }
+            if page_type == "MUSIC_PAGE_TYPE_ALBUM" || subtitle.to_lowercase().contains("album") {
+                return Some(SearchItemVariant::Album(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Album".to_string(),
+                }));
+            }
+            if page_type == "MUSIC_PAGE_TYPE_PLAYLIST" || subtitle.to_lowercase().contains("playlist") {
+                return Some(SearchItemVariant::Playlist(SearchTopResult {
+                    title,
+                    subtitle,
+                    video_id: None,
+                    browse_id,
+                    artwork_url,
+                    result_type: "Playlist".to_string(),
+                }));
+            }
+            if let Some(track) = Self::parse_carousel_item(item) {
+                return Some(SearchItemVariant::Song(track));
+            }
+        }
+
+        None
+    }
+
     fn parse_music_shelf_item(item: &Value) -> Option<TrackItem> {
         let renderer = &item["musicResponsiveListItemRenderer"];
         let flex_columns = renderer["flexColumns"].as_array()?;
@@ -1283,9 +1500,16 @@ impl InnertubeClient {
         let tt_data: Value = tt_res.json().await.ok()?;
         let events = tt_data["events"].as_array()?;
 
-        let mut lines = Vec::new();
+        struct CaptionCue {
+            start_ms: f64,
+            duration_ms: f64,
+            text: String,
+        }
+
+        let mut raw_cues: Vec<CaptionCue> = Vec::new();
         for ev in events {
-            let start_ms = ev["tStartMs"].as_f64()?;
+            let start_ms = ev["tStartMs"].as_f64().unwrap_or(0.0);
+            let duration_ms = ev["dDurationMs"].as_f64().unwrap_or(1500.0);
             let mut line_text = String::new();
             if let Some(segs) = ev["segs"].as_array() {
                 for seg in segs {
@@ -1297,13 +1521,98 @@ impl InnertubeClient {
 
             if let Some(cleaned) = Self::format_caption_line(&line_text) {
                 if !cleaned.is_empty() {
-                    lines.push(crate::lrclib::LyricLine {
-                        time_sec: (start_ms / 10.0).round() / 100.0,
+                    raw_cues.push(CaptionCue {
+                        start_ms,
+                        duration_ms,
                         text: cleaned,
                     });
                 }
             }
         }
+
+        if raw_cues.is_empty() {
+            return None;
+        }
+
+        raw_cues.sort_by(|a, b| a.start_ms.partial_cmp(&b.start_ms).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Group short/choppy cues into longer, natural sentence-by-sentence lyric lines
+        let mut lines = Vec::new();
+        let mut cur_sentence_words: Vec<String> = Vec::new();
+        let mut cur_start_ms = 0.0;
+        let mut cur_end_ms = 0.0;
+
+        let flush_sentence = |words: &mut Vec<String>, start_ms: f64, lines: &mut Vec<crate::lrclib::LyricLine>| {
+            if words.is_empty() {
+                return;
+            }
+            let mut combined = words.join(" ");
+            // Capitalize the first letter if lowercase
+            if let Some(first_char) = combined.chars().next() {
+                if first_char.is_lowercase() {
+                    let mut chars = combined.chars();
+                    combined = format!("{}{}", chars.next().unwrap().to_uppercase(), chars.as_str());
+                }
+            }
+            lines.push(crate::lrclib::LyricLine {
+                time_sec: (start_ms / 10.0).round() / 100.0,
+                text: combined,
+            });
+            words.clear();
+        };
+
+        for cue in raw_cues {
+            if cue.text == "♪" {
+                flush_sentence(&mut cur_sentence_words, cur_start_ms, &mut lines);
+                lines.push(crate::lrclib::LyricLine {
+                    time_sec: (cue.start_ms / 10.0).round() / 100.0,
+                    text: "♪".to_string(),
+                });
+                cur_start_ms = cue.start_ms + cue.duration_ms;
+                cur_end_ms = cur_start_ms;
+                continue;
+            }
+
+            if cur_sentence_words.is_empty() {
+                cur_start_ms = cue.start_ms;
+                cur_end_ms = cue.start_ms + cue.duration_ms;
+                cur_sentence_words.push(cue.text);
+            } else {
+                let last_word = cur_sentence_words.last().cloned().unwrap_or_default();
+                let ends_with_punct = last_word.ends_with('.')
+                    || last_word.ends_with('?')
+                    || last_word.ends_with('!')
+                    || last_word.ends_with(';')
+                    || last_word.ends_with('。')
+                    || last_word.ends_with('！')
+                    || last_word.ends_with('？');
+
+                let time_gap = cue.start_ms - cur_end_ms;
+                let word_count = cur_sentence_words.len();
+
+                // Break conditions:
+                // 1. Prior phrase ended with sentence punctuation (. ! ?)
+                // 2. Significant pause between vocal cues (> 1.2s)
+                // 3. Moderate word count (>= 7 words) with a pause (> 0.55s) or comma
+                // 4. Maximum word count reached (>= 12 words)
+                let should_break = ends_with_punct
+                    || time_gap > 1200.0
+                    || (word_count >= 7 && (time_gap > 550.0 || last_word.ends_with(',')))
+                    || word_count >= 12;
+
+                if should_break {
+                    flush_sentence(&mut cur_sentence_words, cur_start_ms, &mut lines);
+                    cur_start_ms = cue.start_ms;
+                    cur_end_ms = cue.start_ms + cue.duration_ms;
+                    cur_sentence_words.push(cue.text);
+                } else {
+                    cur_end_ms = (cue.start_ms + cue.duration_ms).max(cur_end_ms);
+                    cur_sentence_words.push(cue.text);
+                }
+            }
+        }
+
+        flush_sentence(&mut cur_sentence_words, cur_start_ms, &mut lines);
 
         if lines.is_empty() {
             return None;
@@ -1323,12 +1632,23 @@ impl InnertubeClient {
             instrumental: false,
             lines,
             plain_lyrics,
+            available_sources: vec!["YouTube Captions".to_string()],
         })
     }
 
     fn format_caption_line(raw: &str) -> Option<String> {
         let unescaped = Self::unescape_xml_entities(raw.trim()).replace('\n', " ");
-        let trimmed = unescaped.trim();
+        let no_chevrons = unescaped
+            .replace("&gt;&gt;&gt;", "")
+            .replace("&gt;&gt;", "")
+            .replace(">>>", "")
+            .replace(">>", "");
+        let mut trimmed = no_chevrons.trim();
+        if trimmed.starts_with("- ") {
+            trimmed = trimmed[2..].trim();
+        } else if trimmed.starts_with('-') {
+            trimmed = trimmed[1..].trim();
+        }
         if trimmed.is_empty() {
             return None;
         }
@@ -1512,6 +1832,138 @@ impl InnertubeClient {
             artwork_url,
             track_count,
             tracks,
+        })
+    }
+
+    pub async fn get_artist_detail(&self, browse_id: &str) -> Result<ArtistDetail, String> {
+        let url = "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false";
+        let body = json!({
+            "context": {
+                "client": {
+                    "clientName": "WEB_REMIX",
+                    "clientVersion": "1.20240101.01.00",
+                    "hl": "en",
+                    "gl": "US"
+                }
+            },
+            "browseId": browse_id
+        });
+
+        let req = self.client.post(url).json(&body);
+        let req = self.apply_auth_headers(req);
+        let res = req.send().await.map_err(|e| e.to_string())?;
+        let val: Value = res.json().await.map_err(|e| e.to_string())?;
+
+        let mut name = String::new();
+        let mut description = String::new();
+        let mut avatar_url = String::new();
+        let mut subscribers = String::new();
+        let mut top_songs = Vec::new();
+        let mut sections = Vec::new();
+
+        // Header
+        let header = val.get("header")
+            .and_then(|h| h.get("musicImmersiveHeaderRenderer").or_else(|| h.get("musicVisualHeaderRenderer")));
+
+        if let Some(h) = header {
+            name = h["title"]["runs"][0]["text"].as_str().unwrap_or("").to_string();
+            if let Some(desc) = h["description"]["runs"].as_array() {
+                description = desc.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join("");
+            }
+            if let Some(sub_text) = h["subscriptionButton"]["subscribeButtonRenderer"]["subscriberCountText"]["runs"][0]["text"].as_str() {
+                subscribers = sub_text.to_string();
+            } else if let Some(sub_text) = h["subscriberCountText"]["runs"][0]["text"].as_str() {
+                subscribers = sub_text.to_string();
+            }
+            avatar_url = h["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+                .as_array()
+                .and_then(|arr| arr.last())
+                .and_then(|th| th["url"].as_str())
+                .unwrap_or("")
+                .to_string();
+        }
+
+        // Tabs & Shelves
+        let shelves = val["contents"]["singleColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"].as_array();
+        if let Some(shelves) = shelves {
+            for shelf in shelves {
+                // Top songs / Songs shelf
+                if let Some(music_shelf) = shelf.get("musicShelfRenderer") {
+                    let shelf_title = music_shelf["title"]["runs"][0]["text"].as_str().unwrap_or("Top Songs").to_string();
+                    let items = music_shelf["contents"].as_array();
+                    if let Some(items) = items {
+                        let mut shelf_tracks = Vec::new();
+                        for item in items {
+                            if let Some(track) = Self::parse_music_shelf_item(item) {
+                                shelf_tracks.push(track);
+                            }
+                        }
+                        if shelf_title.to_lowercase().contains("song") && top_songs.is_empty() {
+                            top_songs = shelf_tracks;
+                        } else if !shelf_tracks.is_empty() {
+                            let items: Vec<ArtistSectionItem> = shelf_tracks.into_iter().map(|t| ArtistSectionItem {
+                                title: t.title,
+                                subtitle: t.artist,
+                                browse_id: None,
+                                video_id: Some(t.video_id),
+                                artwork_url: t.artwork_url,
+                                year: None,
+                            }).collect();
+                            sections.push(ArtistSection {
+                                title: shelf_title,
+                                items,
+                            });
+                        }
+                    }
+                }
+
+                // Carousel shelf (Albums, Singles, Related, etc.)
+                if let Some(carousel) = shelf.get("musicCarouselShelfRenderer") {
+                    let title = carousel["header"]["musicCarouselShelfBasicHeaderRenderer"]["title"]["runs"][0]["text"].as_str().unwrap_or("Releases").to_string();
+                    let mut section_items = Vec::new();
+                    if let Some(items) = carousel["contents"].as_array() {
+                        for item in items {
+                            let two_row = &item["musicTwoRowItemRenderer"];
+                            if two_row.is_object() {
+                                let item_title = two_row["title"]["runs"][0]["text"].as_str().unwrap_or("").to_string();
+                                let browse_id = two_row["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str().map(|s| s.to_string());
+                                let video_id = two_row["navigationEndpoint"]["watchEndpoint"]["videoId"].as_str().map(|s| s.to_string());
+                                let artwork_url = two_row["thumbnailRenderer"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"].as_array().and_then(|arr| arr.last()).and_then(|t| t["url"].as_str()).unwrap_or("").to_string();
+                                let subtitle_runs = two_row["subtitle"]["runs"].as_array();
+                                let subtitle = subtitle_runs.map(|arr| arr.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join("")).unwrap_or_default();
+                                let year = subtitle_runs.and_then(|arr| arr.last()).and_then(|r| r["text"].as_str()).map(|s| s.to_string());
+
+                                if !item_title.is_empty() {
+                                    section_items.push(ArtistSectionItem {
+                                        title: item_title,
+                                        subtitle,
+                                        browse_id,
+                                        video_id,
+                                        artwork_url,
+                                        year,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    if !section_items.is_empty() {
+                        sections.push(ArtistSection {
+                            title,
+                            items: section_items,
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(ArtistDetail {
+            browse_id: browse_id.to_string(),
+            name,
+            description,
+            avatar_url,
+            subscribers,
+            top_songs,
+            sections,
         })
     }
 
