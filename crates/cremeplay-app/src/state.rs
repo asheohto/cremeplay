@@ -56,6 +56,7 @@ pub struct AppState {
     pub search_results: Option<SearchResultPayload>,
     pub is_searching: bool,
     pub current_playlist: Option<PlaylistDetail>,
+    pub is_loading_playlist: bool,
     pub nav_history: Vec<ActiveView>,
 
     // Player State
@@ -98,6 +99,7 @@ pub struct AppState {
     pub pending_search_results: Arc<Mutex<Option<SearchResultPayload>>>,
     pub pending_lyrics: Arc<Mutex<Option<LyricsPayload>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
+    pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
     pub pending_account: Arc<Mutex<Option<AccountProfile>>>,
     pub waker: Arc<Mutex<Option<Waker>>>,
 
@@ -147,6 +149,7 @@ impl AppState {
             search_results: None,
             is_searching: false,
             current_playlist: None,
+            is_loading_playlist: false,
             nav_history: Vec::new(),
 
             current_track: None,
@@ -192,6 +195,7 @@ impl AppState {
             pending_search_results: Arc::new(Mutex::new(None)),
             pending_lyrics: Arc::new(Mutex::new(None)),
             pending_playlists: Arc::new(Mutex::new(None)),
+            pending_playlist_detail: Arc::new(Mutex::new(None)),
             pending_account: Arc::new(Mutex::new(None)),
             waker: Arc::new(Mutex::new(None)),
 
@@ -232,6 +236,26 @@ impl AppState {
         let mut cfg = self.config_mgr.get();
         cfg.theme = theme_id.to_string();
         self.config_mgr.save(cfg);
+    }
+
+    pub fn load_playlist(&mut self, browse_id: &str) {
+        self.is_loading_playlist = true;
+        self.current_playlist = None;
+        self.navigate_to(ActiveView::PlaylistDetail);
+
+        let innertube = self.innertube.clone();
+        let pending = self.pending_playlist_detail.clone();
+        let waker_arc = self.waker.clone();
+        let id = browse_id.to_string();
+
+        tokio::spawn(async move {
+            if let Ok(detail) = innertube.get_playlist_or_album(&id).await {
+                *pending.lock().unwrap() = Some(detail);
+                if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                    waker();
+                }
+            }
+        });
     }
 
     pub fn play_track(&mut self, track: TrackItem) {

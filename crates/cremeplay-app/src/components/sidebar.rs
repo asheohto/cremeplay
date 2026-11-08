@@ -128,6 +128,13 @@ pub fn render(s: &AppState) -> El {
                 .child(text(&pl.title).font(typo::LABEL).color(t.heading))
                 .child(text("Playlist").font(typo::CAPTION).color(t.muted));
 
+            let pl_id = pl.browse_id.clone();
+            let is_selected = s
+                .current_playlist
+                .as_ref()
+                .map(|p| p.browse_id == pl.browse_id)
+                .unwrap_or(false);
+
             let pl_row = row()
                 .key(format!("sidebar-pl-{}", pl.browse_id))
                 .w_full()
@@ -136,9 +143,12 @@ pub fn render(s: &AppState) -> El {
                 .px(10.0)
                 .center_y()
                 .gap(12.0)
-                .fill(rune::Color::TRANSPARENT)
+                .fill(if is_selected { t.hover } else { rune::Color::TRANSPARENT })
                 .child(pl_thumb)
-                .child(pl_info);
+                .child(pl_info)
+                .on_press(move |s: &mut AppState| {
+                    s.load_playlist(&pl_id);
+                });
 
             pl_col = pl_col.child(pl_row);
         }
