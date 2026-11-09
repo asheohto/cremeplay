@@ -124,12 +124,25 @@ pub fn render(s: &AppState) -> El {
             let is_active = s.current_playlist.as_ref().map(|p| p.browse_id == pl_id).unwrap_or(false)
                 && s.active_view == ActiveView::PlaylistDetail;
 
-            let pl_icon = el()
-                .size(34.0, 34.0)
-                .radius(8.0)
-                .fill(if is_active { t.brand } else { t.band })
-                .center()
-                .child(icon(&icons::QUEUE, 18.0).color(if is_active { t.brand_text } else { t.muted }));
+            let cover_url = pl
+                .cover_url
+                .as_deref()
+                .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+
+            let pl_icon = if let Some(url) = cover_url
+                && let Some(img) = s.get_image(url) {
+                    el()
+                        .size(34.0, 34.0)
+                        .radius(8.0)
+                        .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+                } else {
+                    el()
+                        .size(34.0, 34.0)
+                        .radius(8.0)
+                        .fill(if is_active { t.brand } else { t.band })
+                        .center()
+                        .child(icon(&icons::QUEUE, 18.0).color(if is_active { t.brand_text } else { t.muted }))
+                };
 
             let pl_meta = col()
                 .gap(2.0)
