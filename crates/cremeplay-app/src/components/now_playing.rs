@@ -219,7 +219,181 @@ pub fn render(s: &AppState) -> El {
         }
         NowPlayingTab::Lyrics => {
             let offset_sec = s.lyrics_offset_ms as f64 / 1000.0;
-            let mut lyrics_col = col().center().gap(18.0).py(40.0);
+            let active_source = s.lyrics.as_ref().map(|l| l.source.as_str()).unwrap_or("None");
+
+            // Source Switcher Pills
+            let mut source_pills = row().gap(6.0).center_y();
+            let mut sources: Vec<String> = s.available_lyrics.keys().cloned().collect();
+            sources.sort();
+            if sources.is_empty() && s.lyrics.is_some() {
+                sources.push(active_source.to_string());
+            }
+
+            for src in &sources {
+                let is_current = src == active_source;
+                let src_clone = src.clone();
+                let pill = el()
+                    .key(format!("np-lyric-src-{}", src))
+                    .h(26.0)
+                    .px(10.0)
+                    .radius(13.0)
+                    .center()
+                    .fill(if is_current { t.brand } else { t.hover })
+                    .border(1.0, if is_current { t.brand } else { t.border })
+                    .child(
+                        text(src)
+                            .font(typo::CAPTION)
+                            .color(if is_current { t.brand_text } else { t.heading }),
+                    )
+                    .on_press(move |s: &mut AppState| {
+                        s.select_lyrics_source(&src_clone);
+                    });
+                source_pills = source_pills.child(pill);
+            }
+
+            let custom_lrc_btn = el()
+                .key("btn-toggle-custom-lrc")
+                .h(26.0)
+                .px(10.0)
+                .radius(13.0)
+                .center()
+                .fill(if s.show_custom_lyrics_modal { t.brand } else { t.hover })
+                .border(1.0, t.border)
+                .child(
+                    text("+ Custom LRC")
+                        .font(typo::CAPTION)
+                        .color(if s.show_custom_lyrics_modal { t.brand_text } else { t.muted }),
+                )
+                .on_press(|s: &mut AppState| {
+                    s.show_custom_lyrics_modal = !s.show_custom_lyrics_modal;
+                });
+            source_pills = source_pills.child(custom_lrc_btn);
+
+            // Offset controls
+            let offset_label = format!("{:+0.1}s", offset_sec);
+            let offset_ctrls = row()
+                .gap(4.0)
+                .center_y()
+                .child(
+                    el()
+                        .key("np-offset-minus")
+                        .h(24.0)
+                        .px(8.0)
+                        .radius(12.0)
+                        .fill(t.hover)
+                        .border(1.0, t.border)
+                        .center()
+                        .child(text("-0.2s").font(typo::CAPTION).color(t.heading))
+                        .on_press(|s: &mut AppState| {
+                            s.adjust_lyrics_offset(-200);
+                        }),
+                )
+                .child(
+                    el()
+                        .key("np-offset-display")
+                        .h(24.0)
+                        .px(8.0)
+                        .radius(12.0)
+                        .fill(if s.lyrics_offset_ms != 0 { t.band } else { rune::Color::TRANSPARENT })
+                        .border(1.0, if s.lyrics_offset_ms != 0 { t.brand } else { rune::Color::TRANSPARENT })
+                        .center()
+                        .child(
+                            text(format!("Sync: {}", offset_label))
+                                .font(typo::CAPTION)
+                                .color(if s.lyrics_offset_ms != 0 { t.brand_text } else { t.muted }),
+                        )
+                        .on_press(|s: &mut AppState| {
+                            s.reset_lyrics_offset();
+                        }),
+                )
+                .child(
+                    el()
+                        .key("np-offset-plus")
+                        .h(24.0)
+                        .px(8.0)
+                        .radius(12.0)
+                        .fill(t.hover)
+                        .border(1.0, t.border)
+                        .center()
+                        .child(text("+0.2s").font(typo::CAPTION).color(t.heading))
+                        .on_press(|s: &mut AppState| {
+                            s.adjust_lyrics_offset(200);
+                        }),
+                );
+
+            let lyrics_bar = row()
+                .w_full()
+                .max_w(680.0)
+                .h(36.0)
+                .justify_between()
+                .center_y()
+                .px(12.0)
+                .child(source_pills)
+                .child(offset_ctrls);
+
+            // Custom lyrics modal if active
+            let custom_box = if s.show_custom_lyrics_modal {
+                let input = rune::text_input(&s.custom_lyrics_edit, typo::CAPTION)
+                    .key("custom-lrc-input")
+                    .w_full()
+                    .h(80.0)
+                    .radius(8.0)
+                    .border(1.0, t.brand)
+                    .fill(t.surface)
+                    .px(10.0)
+                    .py(6.0)
+                    .placeholder("Paste LRC timestamps here, e.g. [00:12.34] Lyrics line...", t.muted)
+                    .on_edit(|s: &mut AppState| &mut s.custom_lyrics_edit);
+
+                let save_btn = el()
+                    .key("btn-save-custom-lrc")
+                    .h(30.0)
+                    .px(14.0)
+                    .radius(15.0)
+                    .fill(t.brand)
+                    .center()
+                    .child(text("Save & Apply").font(typo::LABEL).color(t.brand_text))
+                    .on_press(|s: &mut AppState| {
+                        let text = s.custom_lyrics_edit.text.clone();
+                        s.save_custom_lyrics(text);
+                    });
+
+                let cancel_btn = el()
+                    .key("btn-cancel-custom-lrc")
+                    .h(30.0)
+                    .px(14.0)
+                    .radius(15.0)
+                    .fill(t.hover)
+                    .border(1.0, t.border)
+                    .center()
+                    .child(text("Cancel").font(typo::LABEL).color(t.heading))
+                    .on_press(|s: &mut AppState| {
+                        s.show_custom_lyrics_modal = false;
+                    });
+
+                col()
+                    .w_full()
+                    .max_w(680.0)
+                    .px(12.0)
+                    .py(12.0)
+                    .radius(10.0)
+                    .fill(t.panel)
+                    .border(1.0, t.border)
+                    .gap(8.0)
+                    .child(text("Upload / Custom LRC Lyrics").font(typo::LABEL).color(t.heading))
+                    .child(input)
+                    .child(
+                        row()
+                            .gap(8.0)
+                            .justify_end()
+                            .child(cancel_btn)
+                            .child(save_btn),
+                    )
+            } else {
+                col()
+            };
+
+            let mut lyrics_col = col().center().gap(18.0).py(20.0);
             if let Some(payload) = &s.lyrics {
                 if !payload.lines.is_empty() {
                     for line in &payload.lines {
@@ -268,8 +442,17 @@ pub fn render(s: &AppState) -> El {
                 .w_full()
                 .grow(1.0)
                 .min_h(0.0)
-                .scroll(rune::ScrollSpec { stick_bottom: false })
-                .child(lyrics_col)
+                .center()
+                .child(lyrics_bar)
+                .child(custom_box)
+                .child(
+                    col()
+                        .w_full()
+                        .grow(1.0)
+                        .min_h(0.0)
+                        .scroll(rune::ScrollSpec { stick_bottom: false })
+                        .child(lyrics_col),
+                )
         }
     };
 

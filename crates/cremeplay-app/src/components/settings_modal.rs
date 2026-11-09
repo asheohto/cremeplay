@@ -292,6 +292,96 @@ pub fn render(s: &AppState) -> El {
                     .on_press(on_toggle)
             };
 
+            let preferred_source = cfg.lyrics_source.clone();
+            let source_options = ["auto", "Better-Lyrics", "LRCLIB", "Genius"];
+            let mut pref_pills = row().gap(6.0);
+            for opt in &source_options {
+                let is_sel = preferred_source.eq_ignore_ascii_case(opt);
+                let opt_str = opt.to_string();
+                let pill = el()
+                    .key(format!("set-lyr-src-{}", opt))
+                    .h(28.0)
+                    .px(10.0)
+                    .radius(14.0)
+                    .center()
+                    .fill(if is_sel { t.brand } else { t.surface })
+                    .border(1.0, if is_sel { t.brand } else { t.border })
+                    .child(
+                        text(*opt)
+                            .font(typo::CAPTION)
+                            .color(if is_sel { t.brand_text } else { t.heading }),
+                    )
+                    .on_press(move |s: &mut AppState| {
+                        let mut cfg = s.config_mgr.get();
+                        cfg.lyrics_source = opt_str.clone();
+                        s.lyrics_source = opt_str.clone();
+                        s.config_mgr.save(cfg);
+                    });
+                pref_pills = pref_pills.child(pill);
+            }
+
+            let global_offset_ms = cfg.lyrics_offset_ms;
+            let offset_row = row()
+                .gap(6.0)
+                .center_y()
+                .child(
+                    el()
+                        .key("set-off-minus")
+                        .h(26.0)
+                        .px(8.0)
+                        .radius(13.0)
+                        .fill(t.surface)
+                        .border(1.0, t.border)
+                        .center()
+                        .child(text("-200ms").font(typo::CAPTION).color(t.heading))
+                        .on_press(|s: &mut AppState| {
+                            let mut cfg = s.config_mgr.get();
+                            cfg.lyrics_offset_ms -= 200;
+                            s.lyrics_offset_ms = cfg.lyrics_offset_ms;
+                            s.config_mgr.save(cfg);
+                        }),
+                )
+                .child(
+                    el()
+                        .key("set-off-reset")
+                        .h(26.0)
+                        .px(10.0)
+                        .radius(13.0)
+                        .fill(if global_offset_ms != 0 { t.band } else { t.surface })
+                        .border(1.0, if global_offset_ms != 0 { t.brand } else { t.border })
+                        .center()
+                        .child(
+                            text(format!("{:+0}ms", global_offset_ms))
+                                .font(typo::CAPTION)
+                                .color(if global_offset_ms != 0 { t.brand_text } else { t.muted }),
+                        )
+                        .on_press(|s: &mut AppState| {
+                            let mut cfg = s.config_mgr.get();
+                            cfg.lyrics_offset_ms = 0;
+                            s.lyrics_offset_ms = 0;
+                            s.config_mgr.save(cfg);
+                        }),
+                )
+                .child(
+                    el()
+                        .key("set-off-plus")
+                        .h(26.0)
+                        .px(8.0)
+                        .radius(13.0)
+                        .fill(t.surface)
+                        .border(1.0, t.border)
+                        .center()
+                        .child(text("+200ms").font(typo::CAPTION).color(t.heading))
+                        .on_press(|s: &mut AppState| {
+                            let mut cfg = s.config_mgr.get();
+                            cfg.lyrics_offset_ms += 200;
+                            s.lyrics_offset_ms = cfg.lyrics_offset_ms;
+                            s.config_mgr.save(cfg);
+                        }),
+                );
+
+            let custom_count = cfg.custom_lyrics.len();
+
             col()
                 .w_full()
                 .gap(12.0)
@@ -304,14 +394,58 @@ pub fn render(s: &AppState) -> El {
                 .child(
                     row()
                         .w_full()
-                        .h(40.0)
+                        .h(48.0)
                         .radius(10.0)
                         .px(12.0)
                         .justify_between()
                         .center_y()
                         .fill(t.hover)
                         .child(text("Preferred Source").font(typo::BODY).color(t.heading))
-                        .child(text("Auto (LRCLIB -> Better-Lyrics -> YT)").font(typo::CAPTION).color(t.brand)),
+                        .child(pref_pills),
+                )
+                .child(
+                    row()
+                        .w_full()
+                        .h(44.0)
+                        .radius(10.0)
+                        .px(12.0)
+                        .justify_between()
+                        .center_y()
+                        .fill(t.hover)
+                        .child(text("Default Sync Offset").font(typo::BODY).color(t.heading))
+                        .child(offset_row),
+                )
+                .child(
+                    row()
+                        .w_full()
+                        .h(44.0)
+                        .radius(10.0)
+                        .px(12.0)
+                        .justify_between()
+                        .center_y()
+                        .fill(t.hover)
+                        .child(
+                            col()
+                                .gap(2.0)
+                                .child(text("Custom Lyrics").font(typo::BODY).color(t.heading))
+                                .child(text(format!("{} song(s) with custom lyrics", custom_count)).font(typo::CAPTION).color(t.muted)),
+                        )
+                        .child(
+                            el()
+                                .key("btn-clear-custom-lyrics")
+                                .h(28.0)
+                                .px(10.0)
+                                .radius(14.0)
+                                .fill(t.surface)
+                                .border(1.0, t.border)
+                                .center()
+                                .child(text("Clear All").font(typo::CAPTION).color(t.muted))
+                                .on_press(|s: &mut AppState| {
+                                    let mut cfg = s.config_mgr.get();
+                                    cfg.custom_lyrics.clear();
+                                    s.config_mgr.save(cfg);
+                                }),
+                        ),
                 )
         }
         SettingsTab::Integrations => {

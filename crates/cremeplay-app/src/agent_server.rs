@@ -43,6 +43,9 @@ pub struct AppStatusDto {
     pub liked_count: usize,
     pub is_current_liked: bool,
     pub search_suggestions: Vec<String>,
+    pub lyrics_source: String,
+    pub lyrics_offset_ms: i32,
+    pub available_lyrics_sources: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -67,6 +70,9 @@ pub enum AgentAction {
     LoadPlaylist { id: String },
     PlayTrack { track: TrackItem },
     Theme { name: String },
+    SelectLyricsSource { source: String },
+    AdjustLyricsOffset { delta_ms: i32 },
+    SaveCustomLyrics { lyrics: String },
 }
 
 pub fn start(handle: AppHandle<AppState>) {
@@ -245,6 +251,9 @@ async fn handle_request(
                         .map(|t| s.is_track_liked(&t.video_id))
                         .unwrap_or(false),
                     search_suggestions: s.search_suggestions.clone(),
+                    lyrics_source: s.lyrics_source.clone(),
+                    lyrics_offset_ms: s.lyrics_offset_ms,
+                    available_lyrics_sources: s.available_lyrics.keys().cloned().collect(),
                 };
                 let _ = tx.send(dto);
             });
@@ -469,6 +478,18 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::Theme { name } => {
             s.set_theme(&name);
             format!(r#"{{"status":"ok","action":"theme","theme":"{}"}}"#, name)
+        }
+        AgentAction::SelectLyricsSource { source } => {
+            s.select_lyrics_source(&source);
+            format!(r#"{{"status":"ok","action":"select_lyrics_source","source":"{}"}}"#, source)
+        }
+        AgentAction::AdjustLyricsOffset { delta_ms } => {
+            s.adjust_lyrics_offset(delta_ms);
+            format!(r#"{{"status":"ok","action":"adjust_lyrics_offset","offset_ms":{}}}"#, s.lyrics_offset_ms)
+        }
+        AgentAction::SaveCustomLyrics { lyrics } => {
+            s.save_custom_lyrics(lyrics);
+            r#"{"status":"ok","action":"save_custom_lyrics"}"#.to_string()
         }
     }
 }

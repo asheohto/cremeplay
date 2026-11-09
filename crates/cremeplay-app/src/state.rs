@@ -79,9 +79,12 @@ pub struct AppState {
 
     // Lyrics State
     pub lyrics: Option<LyricsPayload>,
+    pub available_lyrics: HashMap<String, LyricsPayload>,
     pub lyrics_source: String,
     pub lyrics_offset_ms: i32,
     pub active_lyric_index: Option<usize>,
+    pub show_custom_lyrics_modal: bool,
+    pub custom_lyrics_edit: TextEdit,
 
     // Drawer & Modals
     pub show_queue_drawer: bool,
@@ -106,7 +109,7 @@ pub struct AppState {
     pub pending_explore_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_search_results: Arc<Mutex<Option<SearchResultPayload>>>,
     pub pending_suggestions: Arc<Mutex<Option<Vec<String>>>>,
-    pub pending_lyrics: Arc<Mutex<Option<LyricsPayload>>>,
+    pub pending_lyrics: Arc<Mutex<Option<(LyricsPayload, HashMap<String, LyricsPayload>)>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
     pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
     pub pending_artist_detail: Arc<Mutex<Option<ArtistDetail>>>,
@@ -180,9 +183,12 @@ impl AppState {
             queue_index: 0,
 
             lyrics: None,
+            available_lyrics: HashMap::new(),
             lyrics_source: cfg.lyrics_source.clone(),
             lyrics_offset_ms: cfg.lyrics_offset_ms,
             active_lyric_index: None,
+            show_custom_lyrics_modal: false,
+            custom_lyrics_edit: TextEdit::default(),
 
             show_queue_drawer: false,
             queue_drawer_tab: QueueDrawerTab::Queue,
@@ -304,6 +310,16 @@ impl AppState {
         self.current_time = 0.0;
         self.is_playing = true;
         self.sponsor_segments.clear();
+        self.lyrics = None;
+        self.available_lyrics.clear();
+        self.show_custom_lyrics_modal = false;
+
+        // Restore song-specific offset if previously saved
+        if let Some(&off) = self.config_mgr.get().song_offsets.get(&track.video_id) {
+            self.lyrics_offset_ms = off;
+        } else {
+            self.lyrics_offset_ms = self.config_mgr.get().lyrics_offset_ms;
+        }
 
         let player = self.player.clone();
         let innertube = self.innertube.clone();
@@ -311,6 +327,7 @@ impl AppState {
         let discord = self.discord.clone();
         let tuna = self.tuna.clone();
         let sponsorblock = self.sponsorblock.clone();
+        let config_mgr = self.config_mgr.clone();
         let pending_segments = self.pending_segments.clone();
         let cfg_sb = self.config_mgr.get().sponsorblock;
         let pending_lyrics = self.pending_lyrics.clone();
@@ -348,16 +365,60 @@ impl AppState {
             // 3. Tuna overlay
             tuna.update_track(&track_clone.title, &track_clone.artist, &track_clone.album, &track_clone.artwork_url, &track_clone.video_id, track_clone.duration, 0.0, true);
 
-            // 4. Synced lyrics
-            if let Some(payload) = lrclib.fetch_synced_lyrics(&track_clone.title, &track_clone.artist, Some(&track_clone.album), Some(track_clone.duration)).await {
-                *pending_lyrics.lock().unwrap() = Some(payload);
-                if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
-                    waker();
-                }
-            } else if let Some(captions) = innertube.get_captions_lyrics(&track_clone.video_id).await {
-                *pending_lyrics.lock().unwrap() = Some(captions);
-                if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
-                    waker();
+            // 4. Concurrent Multi-Source Synced Lyrics
+            let pref_source = config_mgr.get().lyrics_source.clone();
+            let custom_content = config_mgr.get().custom_lyrics.get(&track_clone.video_id).cloned();
+
+            let (better_res, lrclib_res, captions_res, genius_res) = tokio::join!(
+                lrclib.fetch_better_lyrics(&track_clone.title, &track_clone.artist, Some(&track_clone.album), Some(track_clone.duration), Some(&track_clone.video_id)),
+                lrclib.fetch_synced_lyrics(&track_clone.title, &track_clone.artist, Some(&track_clone.album), Some(track_clone.duration)),
+                innertube.get_captions_lyrics(&track_clone.video_id),
+                lrclib.fetch_genius_lyrics(&track_clone.title, &track_clone.artist)
+            );
+
+            let mut all_sources = HashMap::new();
+            if let Some(p) = better_res {
+                all_sources.insert("Better-Lyrics".to_string(), p);
+            }
+            if let Some(p) = lrclib_res {
+                all_sources.insert("LRCLIB".to_string(), p);
+            }
+            if let Some(p) = captions_res {
+                all_sources.insert("YouTube Captions".to_string(), p);
+            }
+            if let Some(p) = genius_res {
+                all_sources.insert("Genius".to_string(), p);
+            }
+            if let Some(custom) = custom_content {
+                let p = cremeplay_core::lrclib::parse_custom_lyrics(&custom);
+                all_sources.insert("Custom".to_string(), p);
+            }
+
+            if !all_sources.is_empty() {
+                let mut source_names: Vec<String> = all_sources.keys().cloned().collect();
+                source_names.sort();
+                eprintln!("[State] Resolved {} lyrics sources: {:?}", all_sources.len(), source_names);
+
+                let picked_key = if all_sources.contains_key(&pref_source) {
+                    pref_source
+                } else if all_sources.contains_key("Better-Lyrics") {
+                    "Better-Lyrics".to_string()
+                } else if all_sources.contains_key("LRCLIB") {
+                    "LRCLIB".to_string()
+                } else if all_sources.contains_key("YouTube Captions") {
+                    "YouTube Captions".to_string()
+                } else if all_sources.contains_key("Custom") {
+                    "Custom".to_string()
+                } else {
+                    source_names[0].clone()
+                };
+
+                if let Some(mut active_payload) = all_sources.get(&picked_key).cloned() {
+                    active_payload.available_sources = source_names.clone();
+                    *pending_lyrics.lock().unwrap() = Some((active_payload, all_sources));
+                    if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                        waker();
+                    }
                 }
             }
 
@@ -371,6 +432,51 @@ impl AppState {
                 }
             }
         });
+    }
+
+    pub fn select_lyrics_source(&mut self, source_name: &str) {
+        if let Some(payload) = self.available_lyrics.get(source_name) {
+            let mut p = payload.clone();
+            p.available_sources = self.available_lyrics.keys().cloned().collect();
+            self.lyrics = Some(p);
+            self.lyrics_source = source_name.to_string();
+        }
+    }
+
+    pub fn adjust_lyrics_offset(&mut self, delta_ms: i32) {
+        self.lyrics_offset_ms += delta_ms;
+        if let Some(track) = &self.current_track {
+            let mut cfg = self.config_mgr.get();
+            cfg.song_offsets.insert(track.video_id.clone(), self.lyrics_offset_ms);
+            self.config_mgr.save(cfg);
+        }
+    }
+
+    pub fn reset_lyrics_offset(&mut self) {
+        self.lyrics_offset_ms = 0;
+        if let Some(track) = &self.current_track {
+            let mut cfg = self.config_mgr.get();
+            cfg.song_offsets.remove(&track.video_id);
+            self.config_mgr.save(cfg);
+        }
+    }
+
+    pub fn save_custom_lyrics(&mut self, content: String) {
+        let clean = content.trim().to_string();
+        if clean.is_empty() {
+            return;
+        }
+        let parsed = cremeplay_core::lrclib::parse_custom_lyrics(&clean);
+        self.available_lyrics.insert("Custom".to_string(), parsed.clone());
+        self.lyrics = Some(parsed);
+        self.lyrics_source = "Custom".to_string();
+        self.show_custom_lyrics_modal = false;
+
+        if let Some(track) = &self.current_track {
+            let mut cfg = self.config_mgr.get();
+            cfg.custom_lyrics.insert(track.video_id.clone(), clean);
+            self.config_mgr.save(cfg);
+        }
     }
 
     pub fn trigger_search(&mut self, query: String) {

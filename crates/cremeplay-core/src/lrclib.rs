@@ -48,7 +48,7 @@ impl LrclibClient {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(6))
-            .user_agent("Cremeplay/0.1.0 (https://github.com/asheohto/cremeplay)")
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()
             .unwrap_or_default();
 
@@ -273,6 +273,9 @@ impl LrclibClient {
         &self,
         title: &str,
         artist: &str,
+        album: Option<&str>,
+        duration_sec: Option<f64>,
+        video_id: Option<&str>,
     ) -> Option<LyricsPayload> {
         let clean_title = clean_track_title(title);
         let clean_artist = clean_artist_name(artist);
@@ -280,10 +283,97 @@ impl LrclibClient {
             return None;
         }
 
-        let params = [("a", clean_artist.as_str()), ("s", clean_title.as_str())];
-        let url = Url::parse_with_params("https://api.betterlyrics.org/getLyrics", &params).ok()?;
+        // 1. Try official Better-Lyrics API with full track parameters
+        let mut params = vec![
+            ("s", clean_title.clone()),
+            ("a", clean_artist.clone()),
+        ];
+        if let Some(alb) = album {
+            if !alb.trim().is_empty() {
+                params.push(("al", alb.trim().to_string()));
+            }
+        }
+        if let Some(dur) = duration_sec {
+            if dur > 1.0 {
+                params.push(("d", dur.round().to_string()));
+            }
+        }
+
+        if let Ok(url) = Url::parse_with_params("https://api.betterlyrics.org/getLyrics", &params) {
+            if let Ok(resp) = self.client.get(url)
+                .timeout(Duration::from_millis(3000))
+                .send()
+                .await
+            {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.json::<serde_json::Value>().await {
+                        if let Some(ttml) = body.get("ttml").and_then(|t| t.as_str()) {
+                            let lines = parse_ttml(ttml);
+                            if !lines.is_empty() {
+                                let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+                                return Some(LyricsPayload {
+                                    synced: true,
+                                    source: "Better-Lyrics".to_string(),
+                                    instrumental: false,
+                                    lines,
+                                    plain_lyrics: plain,
+                                    available_sources: vec!["Better-Lyrics".to_string()],
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Unison crowdsourced Better-Lyrics fallback if video_id available
+        if let Some(vid) = video_id {
+            let unison_url = format!("https://unison.betterlyrics.org/lyrics?v={}", vid);
+            if let Ok(resp) = self.client.get(&unison_url)
+                .timeout(Duration::from_millis(2500))
+                .send()
+                .await
+            {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.json::<serde_json::Value>().await {
+                        if let Some(lrc) = body.get("lyrics").or_else(|| body.get("data").and_then(|d| d.get("lyrics"))).and_then(|l| l.as_str()) {
+                            let lines = parse_lrc(lrc);
+                            if !lines.is_empty() {
+                                let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+                                return Some(LyricsPayload {
+                                    synced: true,
+                                    source: "Better-Lyrics".to_string(),
+                                    instrumental: false,
+                                    lines,
+                                    plain_lyrics: plain,
+                                    available_sources: vec!["Better-Lyrics".to_string()],
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub async fn fetch_genius_lyrics(
+        &self,
+        title: &str,
+        artist: &str,
+    ) -> Option<LyricsPayload> {
+        let clean_title = clean_track_title(title);
+        let clean_artist = clean_artist_name(artist);
+        if clean_title.trim().is_empty() {
+            return None;
+        }
+
+        let query = format!("{} {}", clean_title, clean_artist);
+        let url = Url::parse_with_params("https://genius.com/api/search/multi", &[("q", &query)]).ok()?;
         let resp = self.client.get(url)
-            .timeout(Duration::from_millis(2500))
+            .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .timeout(Duration::from_millis(3000))
             .send()
             .await
             .ok()?;
@@ -293,22 +383,112 @@ impl LrclibClient {
         }
 
         let body: serde_json::Value = resp.json().await.ok()?;
-        let ttml = body.get("ttml").and_then(|t| t.as_str())?;
-        let lines = parse_ttml(ttml);
-        if lines.is_empty() {
+        let sections = body.get("response")?.get("sections")?.as_array()?;
+        let mut song_url = None;
+
+        for section in sections {
+            if let Some(hits) = section.get("hits").and_then(|h| h.as_array()) {
+                for hit in hits {
+                    if hit.get("type").and_then(|t| t.as_str()) == Some("song") {
+                        if let Some(url) = hit.get("result").and_then(|r| r.get("url")).and_then(|u| u.as_str()) {
+                            song_url = Some(url.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+            if song_url.is_some() {
+                break;
+            }
+        }
+
+        let song_url = song_url?;
+        let page_resp = self.client.get(&song_url)
+            .header(reqwest::header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .timeout(Duration::from_millis(3500))
+            .send()
+            .await
+            .ok()?;
+
+        if !page_resp.status().is_success() {
             return None;
         }
 
-        let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+        let html_text = page_resp.text().await.ok()?;
+        let plain_lyrics = scrape_genius_html(&html_text);
+        if plain_lyrics.trim().is_empty() {
+            return None;
+        }
+
         Some(LyricsPayload {
+            synced: false,
+            source: "Genius".to_string(),
+            instrumental: false,
+            lines: Vec::new(),
+            plain_lyrics,
+            available_sources: vec!["Genius".to_string()],
+        })
+    }
+}
+
+/// Helper function to parse user-uploaded custom lyrics (.lrc or plain text)
+pub fn parse_custom_lyrics(content: &str) -> LyricsPayload {
+    let lines = parse_lrc(content);
+    if !lines.is_empty() {
+        let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+        LyricsPayload {
             synced: true,
-            source: "Better-Lyrics".to_string(),
+            source: "Custom".to_string(),
             instrumental: false,
             lines,
             plain_lyrics: plain,
-            available_sources: vec!["Better-Lyrics".to_string()],
-        })
+            available_sources: vec!["Custom".to_string()],
+        }
+    } else {
+        LyricsPayload {
+            synced: false,
+            source: "Custom".to_string(),
+            instrumental: false,
+            lines: Vec::new(),
+            plain_lyrics: content.trim().to_string(),
+            available_sources: vec!["Custom".to_string()],
+        }
     }
+}
+
+/// Scrapes text inside data-lyrics-container attributes from Genius HTML
+pub fn scrape_genius_html(html: &str) -> String {
+    let mut lyrics = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(start_pos) = html[cursor..].find("data-lyrics-container=\"true\"") {
+        let abs_start = cursor + start_pos;
+        // Find closing tag of this container
+        if let Some(tag_close) = html[abs_start..].find('>') {
+            let inner_start = abs_start + tag_close + 1;
+            if let Some(div_end) = html[inner_start..].find("</div>") {
+                let inner = &html[inner_start..inner_start + div_end];
+                cursor = inner_start + div_end + 6;
+
+                // Replace <br/> or <br> with newlines
+                let with_newlines = inner
+                    .replace("<br/>", "\n")
+                    .replace("<br />", "\n")
+                    .replace("<br>", "\n");
+
+                let clean = strip_xml_tags_and_entities(&with_newlines);
+                if !clean.trim().is_empty() {
+                    lyrics.push(clean);
+                }
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    lyrics.join("\n\n")
 }
 
 /// Strips common YouTube video noise, brackets, and badges from song titles.
@@ -554,6 +734,16 @@ fn parse_timestamp(tag: &str) -> Option<f64> {
 
 pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
     let mut lines = Vec::new();
+    let mut offset_sec = 0.0;
+    if let Some(off_idx) = ttml_text.find("lyricOffset=\"") {
+        let val_start = off_idx + 13;
+        if let Some(quote_end) = ttml_text[val_start..].find('"') {
+            if let Ok(off) = ttml_text[val_start..val_start + quote_end].parse::<f64>() {
+                offset_sec = off;
+            }
+        }
+    }
+
     let mut cursor = 0;
 
     while let Some(p_start) = ttml_text[cursor..].find("<p ") {
@@ -575,8 +765,9 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
                         let inner_xml = &tag_and_content[tag_close + 1..];
                         let clean_text = strip_xml_tags_and_entities(inner_xml);
                         let final_line = clean_lrc_line(&clean_text);
+                        let adjusted = (time_sec + offset_sec).max(0.0);
                         lines.push(LyricLine {
-                            time_sec: (time_sec * 100.0).round() / 100.0,
+                            time_sec: (adjusted * 100.0).round() / 100.0,
                             text: final_line,
                             romanized: None,
                         });

@@ -40,6 +40,10 @@ pub struct AppConfig {
     pub taste_artists: Vec<String>,
     #[serde(default)]
     pub liked_tracks: Vec<crate::innertube::TrackItem>,
+    #[serde(default)]
+    pub custom_lyrics: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub song_offsets: std::collections::HashMap<String, i32>,
 }
 
 fn default_theme() -> String {
@@ -98,6 +102,8 @@ impl Default for AppConfig {
             user_avatar: None,
             taste_artists: Vec::new(),
             liked_tracks: Vec::new(),
+            custom_lyrics: std::collections::HashMap::new(),
+            song_offsets: std::collections::HashMap::new(),
         }
     }
 }

@@ -1295,6 +1295,14 @@ impl InnertubeClient {
                     .get(0)?["navigationEndpoint"]["watchEndpoint"]["videoId"]
                     .as_str()
             })
+            .or_else(|| {
+                renderer["overlay"]["musicItemThumbnailOverlayRenderer"]["content"]["musicPlayButtonRenderer"]["playNavigationEndpoint"]["watchEndpoint"]["videoId"]
+                    .as_str()
+            })
+            .or_else(|| {
+                renderer["navigationEndpoint"]["watchEndpoint"]["videoId"]
+                    .as_str()
+            })
             .unwrap_or("")
             .to_string();
 
@@ -1303,29 +1311,32 @@ impl InnertubeClient {
         }
 
         let artist_runs = flex_columns
-            .get(1)?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
-            .as_array()?;
+            .get(1)
+            .and_then(|c| c["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"].as_array());
 
         let artist = artist_runs
-            .get(0)?["text"]
-            .as_str()
-            .unwrap_or("Unknown Artist")
+            .and_then(|arr| arr.get(0))
+            .and_then(|r| r["text"].as_str())
+            .unwrap_or("")
             .to_string();
 
-        let album = if artist_runs.len() >= 3 {
-            artist_runs.get(2)?["text"]
-                .as_str()
-                .unwrap_or("")
-                .to_string()
-        } else {
-            String::new()
-        };
-
-        let duration_text = flex_columns
-            .get(1)?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
-            .as_array()
-            .and_then(|r| r.last())
+        let album = artist_runs
+            .and_then(|arr| if arr.len() >= 3 { arr.get(2) } else { None })
             .and_then(|r| r["text"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let duration_text = renderer["fixedColumns"]
+            .as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|c| c["musicResponsiveListItemFixedColumnRenderer"]["text"]["runs"].as_array())
+            .and_then(|arr| arr.get(0))
+            .and_then(|r| r["text"].as_str())
+            .or_else(|| {
+                artist_runs
+                    .and_then(|arr| arr.last())
+                    .and_then(|r| r["text"].as_str())
+            })
             .unwrap_or("0:00")
             .to_string();
 
@@ -1900,6 +1911,55 @@ impl InnertubeClient {
                         tracks.push(track);
                     }
                 }
+            }
+        }
+
+        // Check top-level header fallback if not populated
+        if title.is_empty() {
+            let top_header = val.get("header")
+                .and_then(|h| {
+                    h.get("musicResponsiveHeaderRenderer")
+                        .or_else(|| h.get("musicDetailHeaderRenderer"))
+                        .or_else(|| h.get("musicEditablePlaylistDetailHeaderRenderer").and_then(|e| e.get("header").and_then(|h2| h2.get("musicResponsiveHeaderRenderer"))))
+                });
+
+            if let Some(h) = top_header {
+                title = h["title"]["runs"][0]["text"].as_str().unwrap_or("").to_string();
+                if let Some(runs) = h["subtitle"]["runs"].as_array() {
+                    subtitle = runs.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join("");
+                }
+                if let Some(desc_runs) = h["description"]["musicDescriptionShelfRenderer"]["description"]["runs"].as_array() {
+                    description = desc_runs.iter().filter_map(|r| r["text"].as_str()).collect::<Vec<_>>().join("");
+                }
+                if artwork_url.is_empty() {
+                    artwork_url = h["thumbnail"]["musicThumbnailRenderer"]["thumbnail"]["thumbnails"]
+                        .as_array()
+                        .and_then(|arr| arr.last())
+                        .and_then(|th| th["url"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+                }
+            }
+        }
+
+        // Post-process tracks to inherit album / artist defaults if missing
+        let default_artist = if !subtitle.is_empty() {
+            subtitle.split('•').next().map(|s| s.trim()).unwrap_or(&subtitle).to_string()
+        } else {
+            String::new()
+        };
+
+        for track in &mut tracks {
+            if track.artist.is_empty() || track.artist == "Unknown Artist" {
+                if !default_artist.is_empty() {
+                    track.artist = default_artist.clone();
+                }
+            }
+            if track.album.is_empty() && !title.is_empty() {
+                track.album = title.clone();
+            }
+            if track.artwork_url.is_empty() && !artwork_url.is_empty() {
+                track.artwork_url = artwork_url.clone();
             }
         }
 
