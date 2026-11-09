@@ -280,11 +280,16 @@ pub fn render(s: &AppState) -> El {
             s.show_queue_drawer = !s.show_queue_drawer;
         });
 
+    let vol_pct = text(format!("{}%", (s.volume * 100.0).round() as u32))
+        .font(typo::CAPTION)
+        .color(t.muted);
+
     let right = row()
         .center_y()
-        .gap(12.0)
+        .gap(10.0)
         .child(mute_btn)
         .child(vol_track)
+        .child(vol_pct)
         .child(queue_btn);
 
     // Full 76px bottom player bar
