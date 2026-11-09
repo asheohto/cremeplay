@@ -4,7 +4,7 @@ pub mod icons;
 mod state;
 mod theme;
 
-use components::{explore_view, header, home_view, library_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
+use components::{artist_view, explore_view, header, home_view, library_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
 use state::{ActiveView, AppState};
 use std::time::Duration;
 use rune::{col, row, AppSpec, Cx, El, Key, KeyEvent, Tx, Waker};
@@ -19,6 +19,7 @@ fn view(s: &AppState, _: &mut Cx<AppState>) -> El {
         ActiveView::Explore => explore_view::render(s),
         ActiveView::Library => library_view::render(s),
         ActiveView::PlaylistDetail => playlist_view::render(s),
+        ActiveView::ArtistDetail => artist_view::render(s),
     };
 
     let center_area = col()
@@ -180,6 +181,13 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
     if let Some(detail) = s.pending_playlist_detail.lock().unwrap().take() {
         s.current_playlist = Some(detail);
         s.is_loading_playlist = false;
+        state_changed = true;
+    }
+
+    // Drain artist detail
+    if let Some(detail) = s.pending_artist_detail.lock().unwrap().take() {
+        s.current_artist = Some(detail);
+        s.is_loading_artist = false;
         state_changed = true;
     }
 

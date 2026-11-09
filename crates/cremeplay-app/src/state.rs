@@ -1,6 +1,6 @@
 use crate::theme::Theme;
 use cremeplay_core::{
-    innertube::{AccountProfile, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload, SidebarPlaylist, TrackItem},
+    innertube::{AccountProfile, ArtistDetail, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload, SidebarPlaylist, TrackItem},
     lrclib::{LrclibClient, LyricsPayload},
     AudioPlayer, ConfigManager, DiscordManager, SponsorBlockClient, TunaManager,
 };
@@ -16,6 +16,7 @@ pub enum ActiveView {
     Library,
     Search,
     PlaylistDetail,
+    ArtistDetail,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -59,6 +60,8 @@ pub struct AppState {
     pub last_suggestion_query: String,
     pub current_playlist: Option<PlaylistDetail>,
     pub is_loading_playlist: bool,
+    pub current_artist: Option<ArtistDetail>,
+    pub is_loading_artist: bool,
     pub nav_history: Vec<ActiveView>,
 
     // Player State
@@ -106,6 +109,7 @@ pub struct AppState {
     pub pending_lyrics: Arc<Mutex<Option<LyricsPayload>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
     pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
+    pub pending_artist_detail: Arc<Mutex<Option<ArtistDetail>>>,
     pub pending_account: Arc<Mutex<Option<AccountProfile>>>,
     pub waker: Arc<Mutex<Option<Waker>>>,
 
@@ -159,6 +163,8 @@ impl AppState {
             last_suggestion_query: String::new(),
             current_playlist: None,
             is_loading_playlist: false,
+            current_artist: None,
+            is_loading_artist: false,
             nav_history: Vec::new(),
 
             current_track: None,
@@ -209,6 +215,7 @@ impl AppState {
             pending_lyrics: Arc::new(Mutex::new(None)),
             pending_playlists: Arc::new(Mutex::new(None)),
             pending_playlist_detail: Arc::new(Mutex::new(None)),
+            pending_artist_detail: Arc::new(Mutex::new(None)),
             pending_account: Arc::new(Mutex::new(None)),
             waker: Arc::new(Mutex::new(None)),
 
@@ -263,6 +270,26 @@ impl AppState {
 
         tokio::spawn(async move {
             if let Ok(detail) = innertube.get_playlist_or_album(&id).await {
+                *pending.lock().unwrap() = Some(detail);
+                if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                    waker();
+                }
+            }
+        });
+    }
+
+    pub fn load_artist(&mut self, browse_id: &str) {
+        self.is_loading_artist = true;
+        self.current_artist = None;
+        self.navigate_to(ActiveView::ArtistDetail);
+
+        let innertube = self.innertube.clone();
+        let pending = self.pending_artist_detail.clone();
+        let waker_arc = self.waker.clone();
+        let id = browse_id.to_string();
+
+        tokio::spawn(async move {
+            if let Ok(detail) = innertube.get_artist_detail(&id).await {
                 *pending.lock().unwrap() = Some(detail);
                 if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
                     waker();

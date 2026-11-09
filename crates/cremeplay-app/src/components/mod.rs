@@ -1,3 +1,4 @@
+pub mod artist_view;
 pub mod explore_view;
 pub mod header;
 pub mod home_view;

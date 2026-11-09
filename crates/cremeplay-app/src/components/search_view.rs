@@ -311,6 +311,7 @@ pub fn render(s: &AppState) -> El {
                     .child(icon(&icons::MUSIC_NOTE, 32.0).color(t.brand))
             };
 
+            let browse_id = artist.browse_id.clone().unwrap_or_default();
             let artist_name = artist.title.clone();
             let card = col()
                 .key(format!("search-artist-{}", idx))
@@ -323,7 +324,11 @@ pub fn render(s: &AppState) -> El {
                 .child(text(&artist.title).font(typo::LABEL).color(t.heading))
                 .child(text("Artist").font(typo::CAPTION).color(t.muted))
                 .on_press(move |s: &mut AppState| {
-                    s.trigger_search(artist_name.clone());
+                    if !browse_id.is_empty() {
+                        s.load_artist(&browse_id);
+                    } else {
+                        s.trigger_search(artist_name.clone());
+                    }
                 });
 
             artists_row = artists_row.child(card);
