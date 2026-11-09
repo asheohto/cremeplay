@@ -396,9 +396,15 @@ pub fn render(s: &AppState) -> El {
             let mut lyrics_col = col().center().gap(18.0).py(20.0);
             if let Some(payload) = &s.lyrics {
                 if !payload.lines.is_empty() {
-                    for line in &payload.lines {
+                    let active_idx = payload.lines.iter().enumerate().rposition(|(idx, line)| {
+                        let t_start = line.time_sec + offset_sec;
+                        let t_end = payload.lines.get(idx + 1).map(|next| next.time_sec + offset_sec).unwrap_or(t_start + 6.0);
+                        s.current_time >= t_start && s.current_time < t_end
+                    });
+
+                    for (idx, line) in payload.lines.iter().enumerate() {
                         let line_time = line.time_sec + offset_sec;
-                        let is_active = (s.current_time - line_time).abs() < 1.5;
+                        let is_active = Some(idx) == active_idx;
                         let line_text = line.text.clone();
                         let target_sec = line_time;
 
