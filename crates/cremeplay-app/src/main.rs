@@ -482,6 +482,11 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
                     s.navigate_to(crate::state::ActiveView::Search);
                     return true;
                 }
+                "?" => {
+                    s.settings_tab = crate::state::SettingsTab::Shortcuts;
+                    s.show_settings = true;
+                    return true;
+                }
                 _ => {}
             }
         }

@@ -582,6 +582,7 @@ pub fn render(s: &AppState) -> El {
                 .child(shortcut_item("← / →", "Seek Backward / Forward 5s"))
                 .child(shortcut_item("↑ / ↓", "Volume Up / Down 5%"))
                 .child(shortcut_item("/", "Quick Search Navigation"))
+                .child(shortcut_item("?", "Open Shortcuts Guide"))
                 .child(shortcut_item("Ctrl + ,", "Open Settings"))
                 .child(shortcut_item("Esc", "Close Modals & Drawers"))
         }
