@@ -56,6 +56,8 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 ## Features
 
 - **Universal Custom Playlists & Quick Picker**: Create custom playlists, manage and remove tracks, and add songs with 1 click from search, artist profiles, playlists, player bar, or full now playing overlay.
+- **Dynamic 2×2 Cover Artwork Collage**: Playlists with 4 or more tracks automatically construct a 2×2 grid collage across the Library grid, Playlist detail header, and Sidebar with GPU texture mapping and anti-aliased rounded corner clipping.
+- **Interactive Track Reordering**: Reorder songs on the fly with Move Up (`▲`) and Move Down (`▼`) buttons directly inside custom playlist views.
 - **Variable Playback Speed & Device Switcher**: Dynamic speed adjustment (0.75x – 2.0x) with time scaling, plus live OS audio output device enumeration and switching in Settings.
 - **Sleep Timer & Visualizers**: Popover sleep timer with interval presets and track-end auto-pause, alongside real-time animated equalizer visualizers.
 - **Rune Native GPU Engine (Webviewless)**: Built with Rune (`wgpu`, `taffy`, `parley`) delivering 60 FPS GPU-accelerated rendering with **zero Chromium and zero WebView2** overhead (**~3.8 MB idle / ~28 MB active playback**).
