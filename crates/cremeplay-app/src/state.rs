@@ -408,6 +408,13 @@ impl AppState {
             }
 
             if !all_sources.is_empty() {
+                let should_rom = config_mgr.get().romanize_lyrics;
+                if should_rom {
+                    for p in all_sources.values_mut() {
+                        cremeplay_core::romanize_payload(p);
+                    }
+                }
+
                 let mut source_names: Vec<String> = all_sources.keys().cloned().collect();
                 source_names.sort();
                 eprintln!("[State] Resolved {} lyrics sources: {:?}", all_sources.len(), source_names);
@@ -450,9 +457,34 @@ impl AppState {
     pub fn select_lyrics_source(&mut self, source_name: &str) {
         if let Some(payload) = self.available_lyrics.get(source_name) {
             let mut p = payload.clone();
+            if self.config_mgr.get().romanize_lyrics {
+                cremeplay_core::romanize_payload(&mut p);
+            }
             p.available_sources = self.available_lyrics.keys().cloned().collect();
             self.lyrics = Some(p);
             self.lyrics_source = source_name.to_string();
+        }
+    }
+
+    pub fn apply_romanize_toggle(&mut self, enabled: bool) {
+        if enabled {
+            if let Some(lyrics) = &mut self.lyrics {
+                cremeplay_core::romanize_payload(lyrics);
+            }
+            for payload in self.available_lyrics.values_mut() {
+                cremeplay_core::romanize_payload(payload);
+            }
+        } else {
+            if let Some(lyrics) = &mut self.lyrics {
+                for line in &mut lyrics.lines {
+                    line.romanized = None;
+                }
+            }
+            for payload in self.available_lyrics.values_mut() {
+                for line in &mut payload.lines {
+                    line.romanized = None;
+                }
+            }
         }
     }
 
@@ -479,7 +511,10 @@ impl AppState {
         if clean.is_empty() {
             return;
         }
-        let parsed = cremeplay_core::lrclib::parse_custom_lyrics(&clean);
+        let mut parsed = cremeplay_core::lrclib::parse_custom_lyrics(&clean);
+        if self.config_mgr.get().romanize_lyrics {
+            cremeplay_core::romanize_payload(&mut parsed);
+        }
         self.available_lyrics.insert("Custom".to_string(), parsed.clone());
         self.lyrics = Some(parsed);
         self.lyrics_source = "Custom".to_string();

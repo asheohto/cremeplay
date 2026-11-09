@@ -389,7 +389,8 @@ pub fn render(s: &AppState) -> El {
                 .child(toggle_row("toggle-romanize".to_string(), "Romanize Foreign Lyrics", cfg.romanize_lyrics, |s| {
                     let mut cfg = s.config_mgr.get();
                     cfg.romanize_lyrics = !cfg.romanize_lyrics;
-                    s.config_mgr.save(cfg);
+                    s.config_mgr.save(cfg.clone());
+                    s.apply_romanize_toggle(cfg.romanize_lyrics);
                 }))
                 .child(
                     row()
