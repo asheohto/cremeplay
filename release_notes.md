@@ -4,7 +4,7 @@
 - **100% Native Rust GPU Architecture**: Complete migration from Chromium/WebView2 to Rune (`wgpu`, `taffy`, `parley`). Zero Chromium processes, zero WebView2 overhead.
 - **Ultra-Low Memory Footprint**: Idle memory is **~3.8 MB RAM**, active playback runs under **~28 MB RAM** (down from >140 MB).
 - **Sub-30ms Launch Latency**: Native binary launches directly to GPU first-frame in milliseconds.
-- **Custom Playlists System**: Full user-created playlists with persistent JSON storage, custom playlist creation in sidebar and Library view, per-track removal, playlist deletion, and full playback queuing.
+- **Custom Playlists System**: Full user-created playlists with persistent JSON storage, interactive "Add to Playlist" picker modal with track preview, single-click playlist creation, per-track removal, playlist deletion, and full playback queuing.
 - **Variable Playback Speed**: Dynamic speed controls (`0.75x`, `Normal 1x`, `1.25x`, `1.5x`, `2.0x`) with smooth time-scaling and synchronized elapsed offset calculation.
 - **Dynamic Audio Output Device Selection**: Seamlessly list and switch between available Windows audio endpoints (Speakers, Headphones, DACs, Virtual Cables) with persistent configuration.
 - **Integrated Sleep Timer**: Sleek popover timer with quick intervals (15m, 30m, 45m, 60m), 'End of track' automatic playback pause, and live countdown badge.
