@@ -30,6 +30,12 @@ pub struct TunaManager {
     last_payload: Arc<Mutex<Option<TunaPayload>>>,
 }
 
+impl Default for TunaManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TunaManager {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()

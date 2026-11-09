@@ -19,7 +19,7 @@ pub fn has_foreign_script(text: &str) -> bool {
         // Korean Hangul Syllables and Jamo
         0xAC00..=0xD7AF | 0x1100..=0x11FF | 0x3130..=0x318F => true,
         // Japanese Hiragana & Katakana
-        0x3040..=0x309F | 0x30A0..=0x30FF => true,
+        0x3040..=0x30FF => true,
         // Cyrillic
         0x0400..=0x04FF => true,
         // Greek
@@ -241,26 +241,23 @@ pub fn romanize_line(line: &str) -> Option<String> {
         let c = chars[i];
 
         // 1. Check Japanese small tsu (sokuon: っ or ッ)
-        if (c == 'っ' || c == 'ッ') && i + 1 < len {
-            if let Some(next_rom) = kana_lookup(chars[i + 1]) {
-                if let Some(first_char) = next_rom.chars().next() {
+        if (c == 'っ' || c == 'ッ') && i + 1 < len
+            && let Some(next_rom) = kana_lookup(chars[i + 1])
+                && let Some(first_char) = next_rom.chars().next() {
                     result.push(first_char);
                     modified = true;
                     i += 1;
                     continue;
                 }
-            }
-        }
 
         // 2. Check Japanese digraphs (kya, sho, etc.)
-        if i + 1 < len {
-            if let Some(digraph) = kana_digraph(c, chars[i + 1]) {
+        if i + 1 < len
+            && let Some(digraph) = kana_digraph(c, chars[i + 1]) {
                 result.push_str(digraph);
                 modified = true;
                 i += 2;
                 continue;
             }
-        }
 
         // 3. Korean Hangul
         if let Some(hangul) = romanize_hangul_char(c) {
@@ -309,16 +306,14 @@ pub fn romanize_line(line: &str) -> Option<String> {
         }
 
         // Japanese prolonged sound mark: ー
-        if c == 'ー' {
-            if let Some(prev) = result.chars().last() {
-                if matches!(prev, 'a' | 'i' | 'u' | 'e' | 'o') {
+        if c == 'ー'
+            && let Some(prev) = result.chars().last()
+                && matches!(prev, 'a' | 'i' | 'u' | 'e' | 'o') {
                     result.push(prev);
                     modified = true;
                     i += 1;
                     continue;
                 }
-            }
-        }
 
         // Fallthrough: keep character as-is
         result.push(c);

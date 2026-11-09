@@ -25,6 +25,12 @@ pub struct DiscordManager {
     last_song: Arc<Mutex<Option<SongPayload>>>,
 }
 
+impl Default for DiscordManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DiscordManager {
     pub fn new() -> Self {
         Self {

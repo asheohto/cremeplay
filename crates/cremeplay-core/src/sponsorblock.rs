@@ -18,6 +18,12 @@ pub struct SponsorBlockClient {
     client: Client,
 }
 
+impl Default for SponsorBlockClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SponsorBlockClient {
     pub fn new() -> Self {
         Self {

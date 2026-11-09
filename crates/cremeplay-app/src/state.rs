@@ -438,11 +438,10 @@ impl AppState {
                 && let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id) {
                     current.tracks = pl.tracks.clone();
                     current.track_count = current.tracks.len();
-                    if current.artwork_url.is_empty() {
-                        if let Some(first) = current.tracks.first() {
+                    if current.artwork_url.is_empty()
+                        && let Some(first) = current.tracks.first() {
                             current.artwork_url = first.artwork_url.clone();
                         }
-                    }
                 }
     }
 

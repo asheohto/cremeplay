@@ -44,6 +44,12 @@ pub struct LrclibClient {
     cache: Arc<Mutex<HashMap<String, LyricsPayload>>>,
 }
 
+impl Default for LrclibClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LrclibClient {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
@@ -106,14 +112,13 @@ impl LrclibClient {
         }
 
         // 3. Fallback searching by title alone (in case artist string is messy or collab)
-        if clean_title.len() >= 3 {
-            if let Some(payload) = self
+        if clean_title.len() >= 3
+            && let Some(payload) = self
                 .search_fallback(&clean_title, "", duration_sec)
                 .await
             {
                 return Some(payload);
             }
-        }
 
         None
     }
@@ -129,16 +134,14 @@ impl LrclibClient {
             ("track_name", title.to_string()),
             ("artist_name", artist.to_string()),
         ];
-        if let Some(alb) = album {
-            if !alb.trim().is_empty() {
+        if let Some(alb) = album
+            && !alb.trim().is_empty() {
                 params.push(("album_name", alb.trim().to_string()));
             }
-        }
-        if let Some(dur) = duration_sec {
-            if dur > 1.0 {
+        if let Some(dur) = duration_sec
+            && dur > 1.0 {
                 params.push(("duration", dur.round().to_string()));
             }
-        }
 
         let url = Url::parse_with_params("https://lrclib.net/api/get", &params).ok()?;
         let resp = self.client.get(url).send().await.ok()?;
@@ -171,11 +174,10 @@ impl LrclibClient {
             let general_query = format!("{} {}", title, artist);
             let url2 = Url::parse_with_params("https://lrclib.net/api/search", &[("q", &general_query)]).ok()?;
             let resp2 = self.client.get(url2).send().await.ok()?;
-            if resp2.status().is_success() {
-                if let Ok(mut results2) = resp2.json::<Vec<LrclibResponse>>().await {
+            if resp2.status().is_success()
+                && let Ok(mut results2) = resp2.json::<Vec<LrclibResponse>>().await {
                     return Self::pick_best_candidate(&mut results2, target_duration);
                 }
-            }
             return None;
         }
 
@@ -253,8 +255,8 @@ impl LrclibClient {
             }
         }
 
-        if let Some(plain) = resp.plain_lyrics {
-            if !plain.trim().is_empty() {
+        if let Some(plain) = resp.plain_lyrics
+            && !plain.trim().is_empty() {
                 return Some(LyricsPayload {
                     synced: false,
                     source: "LRCLIB".to_string(),
@@ -264,7 +266,6 @@ impl LrclibClient {
                     available_sources: vec!["LRCLIB".to_string()],
                 });
             }
-        }
 
         None
     }
@@ -288,26 +289,23 @@ impl LrclibClient {
             ("s", clean_title.clone()),
             ("a", clean_artist.clone()),
         ];
-        if let Some(alb) = album {
-            if !alb.trim().is_empty() {
+        if let Some(alb) = album
+            && !alb.trim().is_empty() {
                 params.push(("al", alb.trim().to_string()));
             }
-        }
-        if let Some(dur) = duration_sec {
-            if dur > 1.0 {
+        if let Some(dur) = duration_sec
+            && dur > 1.0 {
                 params.push(("d", dur.round().to_string()));
             }
-        }
 
-        if let Ok(url) = Url::parse_with_params("https://api.betterlyrics.org/getLyrics", &params) {
-            if let Ok(resp) = self.client.get(url)
+        if let Ok(url) = Url::parse_with_params("https://api.betterlyrics.org/getLyrics", &params)
+            && let Ok(resp) = self.client.get(url)
                 .timeout(Duration::from_millis(3000))
                 .send()
                 .await
-            {
-                if resp.status().is_success() {
-                    if let Ok(body) = resp.json::<serde_json::Value>().await {
-                        if let Some(ttml) = body.get("ttml").and_then(|t| t.as_str()) {
+                && resp.status().is_success()
+                    && let Ok(body) = resp.json::<serde_json::Value>().await
+                        && let Some(ttml) = body.get("ttml").and_then(|t| t.as_str()) {
                             let lines = parse_ttml(ttml);
                             if !lines.is_empty() {
                                 let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
@@ -321,10 +319,6 @@ impl LrclibClient {
                                 });
                             }
                         }
-                    }
-                }
-            }
-        }
 
         // 2. Unison crowdsourced Better-Lyrics fallback if video_id available
         if let Some(vid) = video_id {
@@ -333,10 +327,9 @@ impl LrclibClient {
                 .timeout(Duration::from_millis(2500))
                 .send()
                 .await
-            {
-                if resp.status().is_success() {
-                    if let Ok(body) = resp.json::<serde_json::Value>().await {
-                        if let Some(lrc) = body.get("lyrics").or_else(|| body.get("data").and_then(|d| d.get("lyrics"))).and_then(|l| l.as_str()) {
+                && resp.status().is_success()
+                    && let Ok(body) = resp.json::<serde_json::Value>().await
+                        && let Some(lrc) = body.get("lyrics").or_else(|| body.get("data").and_then(|d| d.get("lyrics"))).and_then(|l| l.as_str()) {
                             let lines = parse_lrc(lrc);
                             if !lines.is_empty() {
                                 let plain = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
@@ -350,9 +343,6 @@ impl LrclibClient {
                                 });
                             }
                         }
-                    }
-                }
-            }
         }
 
         None
@@ -389,12 +379,11 @@ impl LrclibClient {
         for section in sections {
             if let Some(hits) = section.get("hits").and_then(|h| h.as_array()) {
                 for hit in hits {
-                    if hit.get("type").and_then(|t| t.as_str()) == Some("song") {
-                        if let Some(url) = hit.get("result").and_then(|r| r.get("url")).and_then(|u| u.as_str()) {
+                    if hit.get("type").and_then(|t| t.as_str()) == Some("song")
+                        && let Some(url) = hit.get("result").and_then(|r| r.get("url")).and_then(|u| u.as_str()) {
                             song_url = Some(url.to_string());
                             break;
                         }
-                    }
                 }
             }
             if song_url.is_some() {
@@ -552,14 +541,13 @@ pub fn clean_track_title(title: &str) -> String {
     }
 
     // Strip leading "Artist - " if present (e.g. "Coldplay - Yellow" -> "Yellow")
-    if let Some(pos) = cleaned.find(" - ") {
-        if pos > 0 && pos + 3 < cleaned.len() {
+    if let Some(pos) = cleaned.find(" - ")
+        && pos > 0 && pos + 3 < cleaned.len() {
             let potential_title = cleaned[pos + 3..].trim();
             if !potential_title.is_empty() {
                 cleaned = potential_title.to_string();
             }
         }
-    }
 
     // Collapse multiple spaces into single space
     let words: Vec<&str> = cleaned.split_whitespace().collect();
@@ -737,11 +725,10 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
     let mut offset_sec = 0.0;
     if let Some(off_idx) = ttml_text.find("lyricOffset=\"") {
         let val_start = off_idx + 13;
-        if let Some(quote_end) = ttml_text[val_start..].find('"') {
-            if let Ok(off) = ttml_text[val_start..val_start + quote_end].parse::<f64>() {
+        if let Some(quote_end) = ttml_text[val_start..].find('"')
+            && let Ok(off) = ttml_text[val_start..val_start + quote_end].parse::<f64>() {
                 offset_sec = off;
             }
-        }
     }
 
     let mut cursor = 0;
@@ -759,8 +746,8 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
             let val_start = begin_idx + 7;
             if let Some(quote_end) = tag_and_content[val_start..].find('"') {
                 let time_str = &tag_and_content[val_start..val_start + quote_end];
-                if let Some(time_sec) = parse_ttml_timestamp(time_str) {
-                    if let Some(tag_close) = tag_and_content.find('>') {
+                if let Some(time_sec) = parse_ttml_timestamp(time_str)
+                    && let Some(tag_close) = tag_and_content.find('>') {
                         let inner_xml = &tag_and_content[tag_close + 1..];
                         let clean_text = strip_xml_tags_and_entities(inner_xml);
                         let final_line = clean_lrc_line(&clean_text);
@@ -771,7 +758,6 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
                             romanized: None,
                         });
                     }
-                }
             }
         }
     }

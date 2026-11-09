@@ -125,6 +125,12 @@ pub struct InnertubeClient {
     stream_cache: Arc<Mutex<HashMap<String, (String, std::time::Instant)>>>,
 }
 
+impl Default for InnertubeClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InnertubeClient {
     pub fn new() -> Self {
         let mut headers = HeaderMap::new();
@@ -197,11 +203,10 @@ impl InnertubeClient {
     fn extract_cookie<'a>(cookies: &'a str, key: &str) -> Option<&'a str> {
         for part in cookies.split(';') {
             let trimmed = part.trim();
-            if let Some(val) = trimmed.strip_prefix(key) {
-                if let Some(eq_val) = val.strip_prefix('=') {
+            if let Some(val) = trimmed.strip_prefix(key)
+                && let Some(eq_val) = val.strip_prefix('=') {
                     return Some(eq_val.trim());
                 }
-            }
         }
         None
     }
@@ -231,8 +236,8 @@ impl InnertubeClient {
         let req = self.client.post(url).json(&body);
         let req = self.apply_auth_headers(req);
 
-        if let Ok(res) = req.send().await {
-            if let Ok(val) = res.json::<Value>().await {
+        if let Ok(res) = req.send().await
+            && let Ok(val) = res.json::<Value>().await {
                 let header = &val["actions"][0]["openPopupAction"]["popup"]["multiPageMenuRenderer"]["header"]["activeAccountHeaderRenderer"];
                 let name = header["accountName"]["runs"][0]["text"].as_str().unwrap_or("You").to_string();
                 let avatar = header["accountPhoto"]["thumbnails"].as_array().and_then(|t| t.last()).and_then(|t| t["url"].as_str()).unwrap_or("").to_string();
@@ -243,7 +248,6 @@ impl InnertubeClient {
                     is_logged_in: true,
                 };
             }
-        }
 
         AccountProfile {
             name: "YouTube Music User".to_string(),
@@ -311,7 +315,7 @@ impl InnertubeClient {
                     let video_id = card["onTap"]["watchEndpoint"]["videoId"].as_str().map(|s| s.to_string())
                         .or_else(|| {
                             card["buttons"].as_array()
-                                .and_then(|btns| btns.get(0))
+                                .and_then(|btns| btns.first())
                                 .and_then(|b| b["buttonRenderer"]["command"]["watchEndpoint"]["videoId"].as_str())
                                 .map(|s| s.to_string())
                         });
@@ -576,7 +580,7 @@ impl InnertubeClient {
         // Fetch first continuation if available to get further shelves (Community, Indie, Discover, etc.)
         let continuation_token = section_list["continuations"]
             .as_array()
-            .and_then(|arr| arr.get(0))
+            .and_then(|arr| arr.first())
             .and_then(|c| c["nextContinuationData"]["continuation"].as_str())
             .map(|s| s.to_string());
 
@@ -594,8 +598,8 @@ impl InnertubeClient {
             });
             let cont_req = self.client.post(&cont_url).json(&cont_body);
             let cont_req = self.apply_auth_headers(cont_req);
-            if let Ok(cont_res) = cont_req.send().await {
-                if let Ok(cont_val) = cont_res.json::<Value>().await {
+            if let Ok(cont_res) = cont_req.send().await
+                && let Ok(cont_val) = cont_res.json::<Value>().await {
                     let cont_items = cont_val["continuationContents"]["sectionListContinuation"]["contents"].as_array();
                     if let Some(cont_items) = cont_items {
                         for section_val in cont_items {
@@ -640,7 +644,6 @@ impl InnertubeClient {
                         }
                     }
                 }
-            }
         }
 
         // Ensure "Daily Discover", "Similar to [Artist]", and "From the community" are present
@@ -652,7 +655,7 @@ impl InnertubeClient {
             let discover_query = if let Some(top_seed) = external_taste_seeds.iter().find(|s| !s.trim().is_empty() && !s.eq_ignore_ascii_case("unknown")) {
                 format!("{} discover mix", top_seed)
             } else {
-                let first_artist = sections.get(0).and_then(|s| s.items.get(0)).map(|t| t.artist.clone());
+                let first_artist = sections.first().and_then(|s| s.items.first()).map(|t| t.artist.clone());
                 if let Some(art) = first_artist.filter(|a| !a.is_empty() && a != "Unknown") {
                     format!("{} discover mix", art)
                 } else {
@@ -660,32 +663,28 @@ impl InnertubeClient {
                 }
             };
 
-            if let Ok(res) = self.search(&discover_query).await {
-                if !res.songs.is_empty() {
+            if let Ok(res) = self.search(&discover_query).await
+                && !res.songs.is_empty() {
                     let insert_pos = 1.min(sections.len());
                     sections.insert(insert_pos, HomeSection {
                         title: "Daily Discover".to_string(),
                         items: res.songs.into_iter().take(12).collect(),
                     });
                 }
-            }
         }
 
         // 2. Similar to (artist) section
         if !has_similar {
-            let first_artist = sections.get(0).and_then(|s| s.items.get(0)).map(|t| t.artist.clone());
-            if let Some(artist) = first_artist {
-                if !artist.is_empty() && artist != "Unknown" {
-                    if let Ok(res) = self.search(&format!("{} mix", artist)).await {
-                        if !res.songs.is_empty() {
+            let first_artist = sections.first().and_then(|s| s.items.first()).map(|t| t.artist.clone());
+            if let Some(artist) = first_artist
+                && !artist.is_empty() && artist != "Unknown"
+                    && let Ok(res) = self.search(&format!("{} mix", artist)).await
+                        && !res.songs.is_empty() {
                             sections.push(HomeSection {
                                 title: format!("Similar to {}", artist),
                                 items: res.songs.into_iter().take(12).collect(),
                             });
                         }
-                    }
-                }
-            }
         }
 
         // 3. "From the community" playlists section - SUITED TO USER TASTE & PERSONALIZATION
@@ -735,8 +734,8 @@ impl InnertubeClient {
         }
 
         // 3. If still empty and authenticated, sample from liked songs
-        if combined_seeds.is_empty() {
-            if let Ok(liked) = self.get_liked_songs().await {
+        if combined_seeds.is_empty()
+            && let Ok(liked) = self.get_liked_songs().await {
                 for track in liked.iter().take(10) {
                     let clean = track.artist.trim().to_string();
                     let lower = clean.to_lowercase();
@@ -746,7 +745,6 @@ impl InnertubeClient {
                     }
                 }
             }
-        }
 
         let mut community_items = Vec::new();
         if let Some(pos) = sections.iter().position(|s| s.title.to_lowercase().contains("community")) {
@@ -792,11 +790,10 @@ impl InnertubeClient {
             }
         }
 
-        if sections.is_empty() {
-            if let Ok(explore) = self.get_explore_feed().await {
+        if sections.is_empty()
+            && let Ok(explore) = self.get_explore_feed().await {
                 sections = explore;
             }
-        }
 
         Ok(sections)
     }
@@ -884,8 +881,8 @@ impl InnertubeClient {
         let req = Self::apply_auth_headers_raw(cookie_str, req);
 
         let mut items_out = Vec::new();
-        if let Ok(res) = req.send().await {
-            if let Ok(val) = res.json::<Value>().await {
+        if let Ok(res) = req.send().await
+            && let Ok(val) = res.json::<Value>().await {
                 let sections = val["contents"]["tabbedSearchResultsRenderer"]["tabs"][0]["tabRenderer"]
                     ["content"]["sectionListRenderer"]["contents"]
                     .as_array();
@@ -941,27 +938,24 @@ impl InnertubeClient {
                     }
                 }
             }
-        }
 
         items_out
     }
 
     pub async fn get_liked_songs(&self) -> Result<Vec<TrackItem>, String> {
         // In YouTube Music Web, Liked Music is playlist VLLM
-        if let Ok(detail) = self.get_playlist_or_album("VLLM").await {
-            if !detail.tracks.is_empty() {
+        if let Ok(detail) = self.get_playlist_or_album("VLLM").await
+            && !detail.tracks.is_empty() {
                 info!("[Innertube] Loaded {} liked songs via VLLM", detail.tracks.len());
                 return Ok(detail.tracks);
             }
-        }
 
         // Fallback to FElikes
-        if let Ok(detail) = self.get_playlist_or_album("FElikes").await {
-            if !detail.tracks.is_empty() {
+        if let Ok(detail) = self.get_playlist_or_album("FElikes").await
+            && !detail.tracks.is_empty() {
                 info!("[Innertube] Loaded {} liked songs via FElikes", detail.tracks.len());
                 return Ok(detail.tracks);
             }
-        }
 
         Ok(Vec::new())
     }
@@ -993,11 +987,10 @@ impl InnertubeClient {
                         let entry = &item["guideEntryRenderer"];
                         let title = entry["formattedTitle"]["runs"][0]["text"].as_str().unwrap_or("").to_string();
                         let browse_id = entry["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str().unwrap_or("").to_string();
-                        if !title.is_empty() && !browse_id.is_empty() {
-                            if browse_id != "FEmusic_home" && browse_id != "FEmusic_explore" && browse_id != "FEmusic_library_landing" {
+                        if !title.is_empty() && !browse_id.is_empty()
+                            && browse_id != "FEmusic_home" && browse_id != "FEmusic_explore" && browse_id != "FEmusic_library_landing" {
                                 playlists.push(SidebarPlaylist { title, browse_id });
                             }
-                        }
                     }
                 }
             }
@@ -1037,12 +1030,11 @@ impl InnertubeClient {
     pub async fn get_audio_stream_url(&self, video_id: &str) -> Result<String, String> {
         {
             let cache = self.stream_cache.lock().unwrap();
-            if let Some((url, timestamp)) = cache.get(video_id) {
-                if timestamp.elapsed() < std::time::Duration::from_secs(7200) {
+            if let Some((url, timestamp)) = cache.get(video_id)
+                && timestamp.elapsed() < std::time::Duration::from_secs(7200) {
                     info!("[Innertube] Cache hit for audio stream: {}", video_id);
                     return Ok(url.clone());
                 }
-            }
         }
 
         let res = self.get_audio_stream_url_uncached(video_id).await;
@@ -1061,18 +1053,15 @@ impl InnertubeClient {
                 .iter()
                 .filter(|s| s.mime.contains("mp4"))
                 .max_by_key(|s| s.bitrate)
-            {
-                if self.verify_stream_playable(&stream.url).await {
+                && self.verify_stream_playable(&stream.url).await {
                     info!("[Innertube] RustyPipe extracted verified MP4 audio stream (bitrate: {})", stream.bitrate);
                     return Ok(stream.url.clone());
                 }
-            }
-            if let Some(stream) = player.audio_streams.iter().max_by_key(|s| s.bitrate) {
-                if self.verify_stream_playable(&stream.url).await {
+            if let Some(stream) = player.audio_streams.iter().max_by_key(|s| s.bitrate)
+                && self.verify_stream_playable(&stream.url).await {
                     info!("[Innertube] RustyPipe extracted verified audio stream (bitrate: {})", stream.bitrate);
                     return Ok(stream.url.clone());
                 }
-            }
         }
 
         // Strategy 2: High-uptime Invidious direct proxy stream (itag 140 = 128k AAC / M4A)
@@ -1096,9 +1085,9 @@ impl InnertubeClient {
             "videoId": video_id
         });
 
-        if let Ok(res) = self.client.post(vr_url).json(&vr_body).send().await {
-            if let Ok(val) = res.json::<Value>().await {
-                if let Some(formats) = val["streamingData"]["adaptiveFormats"].as_array() {
+        if let Ok(res) = self.client.post(vr_url).json(&vr_body).send().await
+            && let Ok(val) = res.json::<Value>().await
+                && let Some(formats) = val["streamingData"]["adaptiveFormats"].as_array() {
                     let mut audio_streams: Vec<&Value> = formats
                         .iter()
                         .filter(|f| {
@@ -1107,17 +1096,13 @@ impl InnertubeClient {
                         })
                         .collect();
                     audio_streams.sort_by_key(|f| f["bitrate"].as_i64().unwrap_or(0));
-                    if let Some(best) = audio_streams.last() {
-                        if let Some(u) = best["url"].as_str() {
-                            if self.verify_stream_playable(u).await {
+                    if let Some(best) = audio_streams.last()
+                        && let Some(u) = best["url"].as_str()
+                            && self.verify_stream_playable(u).await {
                                 info!("[Innertube] ANDROID_VR extracted stream URL successfully");
                                 return Ok(u.to_string());
                             }
-                        }
-                    }
                 }
-            }
-        }
 
         // Strategy 4: Invidious API instances fallback
         let invidious_instances = [
@@ -1130,23 +1115,19 @@ impl InnertubeClient {
 
         for instance in invidious_instances {
             let inv_url = format!("{}/api/v1/videos/{}", instance, video_id);
-            if let Ok(res) = self.client.get(&inv_url).timeout(std::time::Duration::from_secs(3)).send().await {
-                if let Ok(val) = res.json::<Value>().await {
-                    if let Some(adaptive_formats) = val["adaptiveFormats"].as_array() {
+            if let Ok(res) = self.client.get(&inv_url).timeout(std::time::Duration::from_secs(3)).send().await
+                && let Ok(val) = res.json::<Value>().await
+                    && let Some(adaptive_formats) = val["adaptiveFormats"].as_array() {
                         let audio_fmt = adaptive_formats.iter().find(|f| {
                             f["type"].as_str().map(|t| t.starts_with("audio/")).unwrap_or(false) && f["url"].is_string()
                         });
-                        if let Some(fmt) = audio_fmt {
-                            if let Some(u) = fmt["url"].as_str() {
-                                if self.verify_stream_playable(u).await {
+                        if let Some(fmt) = audio_fmt
+                            && let Some(u) = fmt["url"].as_str()
+                                && self.verify_stream_playable(u).await {
                                     info!("[Innertube] Invidious fallback succeeded from {}", instance);
                                     return Ok(u.to_string());
                                 }
-                            }
-                        }
                     }
-                }
-            }
         }
 
         Err("Could not retrieve playable audio stream URL".to_string())
@@ -1156,18 +1137,16 @@ impl InnertubeClient {
         let renderer = &item["musicResponsiveListItemRenderer"];
         if renderer.is_object() {
             let flex_columns = renderer["flexColumns"].as_array()?;
-            let flex0 = flex_columns.get(0)?;
+            let flex0 = flex_columns.first()?;
             let flex0_runs = flex0["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"].as_array()?;
-            let title = flex0_runs.get(0)?["text"].as_str()?.to_string();
+            let title = flex0_runs.first()?["text"].as_str()?.to_string();
 
-            let browse_id = flex0_runs
-                .get(0)
+            let browse_id = flex0_runs.first()
                 .and_then(|r| r["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str())
                 .or_else(|| renderer["navigationEndpoint"]["browseEndpoint"]["browseId"].as_str())
                 .map(|s| s.to_string());
 
-            let page_type = flex0_runs
-                .get(0)
+            let page_type = flex0_runs.first()
                 .and_then(|r| {
                     r["navigationEndpoint"]["browseEndpoint"]["browseEndpointContextSupportedConfigs"]
                         ["browseEndpointContextMusicConfig"]["pageType"]
@@ -1191,7 +1170,7 @@ impl InnertubeClient {
                 .unwrap_or_default();
 
             let first_type_tag = runs_col1
-                .and_then(|arr| arr.get(0))
+                .and_then(|arr| arr.first())
                 .and_then(|r| r["text"].as_str())
                 .unwrap_or("")
                 .trim()
@@ -1199,7 +1178,7 @@ impl InnertubeClient {
 
             if page_type == "MUSIC_PAGE_TYPE_ARTIST"
                 || first_type_tag == "artist"
-                || browse_id.as_deref().map_or(false, |b| b.starts_with("UC"))
+                || browse_id.as_deref().is_some_and(|b| b.starts_with("UC"))
             {
                 return Some(SearchItemVariant::Artist(SearchTopResult {
                     title,
@@ -1215,7 +1194,7 @@ impl InnertubeClient {
                 || first_type_tag == "album"
                 || first_type_tag == "single"
                 || first_type_tag == "ep"
-                || browse_id.as_deref().map_or(false, |b| b.starts_with("MPREb"))
+                || browse_id.as_deref().is_some_and(|b| b.starts_with("MPREb"))
             {
                 return Some(SearchItemVariant::Album(SearchTopResult {
                     title,
@@ -1231,7 +1210,7 @@ impl InnertubeClient {
                 || first_type_tag == "playlist"
                 || browse_id
                     .as_deref()
-                    .map_or(false, |b| b.starts_with("VL") || b.starts_with("PL"))
+                    .is_some_and(|b| b.starts_with("VL") || b.starts_with("PL"))
             {
                 return Some(SearchItemVariant::Playlist(SearchTopResult {
                     title,
@@ -1311,8 +1290,7 @@ impl InnertubeClient {
         let renderer = &item["musicResponsiveListItemRenderer"];
         let flex_columns = renderer["flexColumns"].as_array()?;
 
-        let title = flex_columns
-            .get(0)?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
+        let title = flex_columns.first()?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
             .get(0)?["text"]
             .as_str()?
             .to_string();
@@ -1320,7 +1298,7 @@ impl InnertubeClient {
         let video_id = renderer["playlistItemData"]["videoId"]
             .as_str()
             .or_else(|| {
-                flex_columns.get(0)?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
+                flex_columns.first()?["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"]
                     .get(0)?["navigationEndpoint"]["watchEndpoint"]["videoId"]
                     .as_str()
             })
@@ -1344,7 +1322,7 @@ impl InnertubeClient {
             .and_then(|c| c["musicResponsiveListItemFlexColumnRenderer"]["text"]["runs"].as_array());
 
         let artist = artist_runs
-            .and_then(|arr| arr.get(0))
+            .and_then(|arr| arr.first())
             .and_then(|r| r["text"].as_str())
             .unwrap_or("")
             .to_string();
@@ -1357,9 +1335,9 @@ impl InnertubeClient {
 
         let duration_text = renderer["fixedColumns"]
             .as_array()
-            .and_then(|arr| arr.get(0))
+            .and_then(|arr| arr.first())
             .and_then(|c| c["musicResponsiveListItemFixedColumnRenderer"]["text"]["runs"].as_array())
-            .and_then(|arr| arr.get(0))
+            .and_then(|arr| arr.first())
             .and_then(|r| r["text"].as_str())
             .or_else(|| {
                 artist_runs
@@ -1498,12 +1476,11 @@ impl InnertubeClient {
         if let Some(tabs) = tabs {
             for tab in tabs {
                 let browse_id = tab["tabRenderer"]["endpoint"]["browseEndpoint"]["browseId"].as_str();
-                if let Some(bid) = browse_id {
-                    if bid.starts_with("MPLY") {
+                if let Some(bid) = browse_id
+                    && bid.starts_with("MPLY") {
                         lyrics_browse_id = Some(bid.to_string());
                         break;
                     }
-                }
             }
         }
 
@@ -1637,15 +1614,14 @@ impl InnertubeClient {
                 }
             }
 
-            if let Some(cleaned) = Self::format_caption_line(&line_text) {
-                if !cleaned.is_empty() {
+            if let Some(cleaned) = Self::format_caption_line(&line_text)
+                && !cleaned.is_empty() {
                     raw_cues.push(CaptionCue {
                         start_ms,
                         duration_ms,
                         text: cleaned,
                     });
                 }
-            }
         }
 
         if raw_cues.is_empty() {
@@ -1666,12 +1642,11 @@ impl InnertubeClient {
             }
             let mut combined = words.join(" ");
             // Capitalize the first letter if lowercase
-            if let Some(first_char) = combined.chars().next() {
-                if first_char.is_lowercase() {
+            if let Some(first_char) = combined.chars().next()
+                && first_char.is_lowercase() {
                     let mut chars = combined.chars();
                     combined = format!("{}{}", chars.next().unwrap().to_uppercase(), chars.as_str());
                 }
-            }
             lines.push(crate::lrclib::LyricLine {
                 time_sec: (start_ms / 10.0).round() / 100.0,
                 text: combined,
@@ -1885,9 +1860,9 @@ impl InnertubeClient {
         if let Some(tc) = val["contents"]["twoColumnBrowseResultsRenderer"].as_object() {
             let header = tc.get("tabs")
                 .and_then(|t| t.as_array())
-                .and_then(|t| t.get(0))
+                .and_then(|t| t.first())
                 .and_then(|t0| t0["tabRenderer"]["content"]["sectionListRenderer"]["contents"].as_array())
-                .and_then(|c| c.get(0))
+                .and_then(|c| c.first())
                 .and_then(|s| s.get("musicResponsiveHeaderRenderer"));
 
             if let Some(h) = header {
@@ -1908,7 +1883,7 @@ impl InnertubeClient {
 
             let shelf_contents = tc.get("secondaryContents")
                 .and_then(|sc| sc["sectionListRenderer"]["contents"].as_array())
-                .and_then(|c| c.get(0))
+                .and_then(|c| c.first())
                 .and_then(|s| {
                     s.get("musicShelfRenderer")
                         .or_else(|| s.get("musicPlaylistShelfRenderer"))
@@ -1925,9 +1900,9 @@ impl InnertubeClient {
         } else if let Some(sc) = val["contents"]["singleColumnBrowseResultsRenderer"].as_object() {
             let shelf_contents = sc.get("tabs")
                 .and_then(|t| t.as_array())
-                .and_then(|t| t.get(0))
+                .and_then(|t| t.first())
                 .and_then(|t0| t0["tabRenderer"]["content"]["sectionListRenderer"]["contents"].as_array())
-                .and_then(|c| c.get(0))
+                .and_then(|c| c.first())
                 .and_then(|s| {
                     s.get("musicPlaylistShelfRenderer")
                         .or_else(|| s.get("musicShelfRenderer"))
@@ -1979,11 +1954,10 @@ impl InnertubeClient {
         };
 
         for track in &mut tracks {
-            if track.artist.is_empty() || track.artist == "Unknown Artist" {
-                if !default_artist.is_empty() {
+            if (track.artist.is_empty() || track.artist == "Unknown Artist")
+                && !default_artist.is_empty() {
                     track.artist = default_artist.clone();
                 }
-            }
             if track.album.is_empty() && !title.is_empty() {
                 track.album = title.clone();
             }

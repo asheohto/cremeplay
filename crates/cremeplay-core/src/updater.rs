@@ -42,14 +42,12 @@ pub async fn check_for_updates(current_version: &str) -> Option<UpdateInfo> {
     let mut download_url = html_url.clone();
     if let Some(assets) = val.get("assets").and_then(|a| a.as_array()) {
         for asset in assets {
-            if let Some(name) = asset.get("name").and_then(|n| n.as_str()) {
-                if name.ends_with(".exe") {
-                    if let Some(url) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
+            if let Some(name) = asset.get("name").and_then(|n| n.as_str())
+                && name.ends_with(".exe")
+                    && let Some(url) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
                         download_url = url.to_string();
                         break;
                     }
-                }
-            }
         }
     }
 

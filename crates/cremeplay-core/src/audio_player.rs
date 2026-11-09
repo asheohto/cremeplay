@@ -40,6 +40,12 @@ pub struct AudioPlayer {
     selected_device_name: Arc<Mutex<Option<String>>>,
 }
 
+impl Default for AudioPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioPlayer {
     pub fn list_output_devices() -> Vec<String> {
         use rodio::cpal::traits::{DeviceTrait, HostTrait};
@@ -135,7 +141,7 @@ impl AudioPlayer {
 
             let content_range = res.headers().get("content-range").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
             let total_size: Option<usize> = content_range.as_ref().and_then(|cr| {
-                cr.split('/').last().and_then(|s| s.parse().ok())
+                cr.split('/').next_back().and_then(|s| s.parse().ok())
             });
 
             let bytes = res.bytes().await.map_err(|e| format!("Failed to read chunk bytes: {}", e))?;
@@ -146,11 +152,10 @@ impl AudioPlayer {
             buffer.extend_from_slice(&bytes);
             start += chunk_len;
 
-            if let Some(total) = total_size {
-                if start >= total {
+            if let Some(total) = total_size
+                && start >= total {
                     break;
                 }
-            }
         }
 
         let cursor = Cursor::new(buffer);
@@ -185,7 +190,7 @@ impl AudioPlayer {
             None => return Err("Audio sink failed to initialize".to_string()),
         };
 
-        let new_player = Player::connect_new(&sink.mixer());
+        let new_player = Player::connect_new(sink.mixer());
         let vol = *self.volume.lock().unwrap();
         new_player.set_volume(vol);
         let spd = *self.speed.lock().unwrap();
@@ -235,8 +240,8 @@ impl AudioPlayer {
 
     pub fn pause(&self) {
         let mut player_guard = self.player.lock().unwrap();
-        if let Some(player) = player_guard.as_mut() {
-            if self.is_playing.load(Ordering::Relaxed) {
+        if let Some(player) = player_guard.as_mut()
+            && self.is_playing.load(Ordering::Relaxed) {
                 player.pause();
                 self.is_playing.store(false, Ordering::Relaxed);
                 let mut start_guard = self.playback_start_instant.lock().unwrap();
@@ -245,18 +250,16 @@ impl AudioPlayer {
                     *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64() * spd;
                 }
             }
-        }
     }
 
     pub fn play(&self) {
         let mut player_guard = self.player.lock().unwrap();
-        if let Some(player) = player_guard.as_mut() {
-            if !self.is_playing.load(Ordering::Relaxed) {
+        if let Some(player) = player_guard.as_mut()
+            && !self.is_playing.load(Ordering::Relaxed) {
                 player.play();
                 self.is_playing.store(true, Ordering::Relaxed);
                 *self.playback_start_instant.lock().unwrap() = Some(Instant::now());
             }
-        }
     }
 
     pub fn stop(&self) {
