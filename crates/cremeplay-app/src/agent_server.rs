@@ -82,6 +82,7 @@ pub enum AgentAction {
     SleepTimer { mins: Option<u32>, end_of_track: Option<bool> },
     SetAudioOutputDevice { device: Option<String> },
     CreateCustomPlaylist { title: String },
+    RenameCustomPlaylist { id: String, title: String },
     DeleteCustomPlaylist { id: String },
     AddToCustomPlaylist { playlist_id: String, track: TrackItem },
     LoadArtist { id: String },
@@ -559,6 +560,10 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::CreateCustomPlaylist { title } => {
             let id = s.create_custom_playlist(title);
             format!(r#"{{"status":"ok","action":"create_custom_playlist","id":"{}"}}"#, id)
+        }
+        AgentAction::RenameCustomPlaylist { id, title } => {
+            s.rename_custom_playlist(&id, title.clone());
+            format!(r#"{{"status":"ok","action":"rename_custom_playlist","id":"{}","title":"{}"}}"#, id, title)
         }
         AgentAction::DeleteCustomPlaylist { id } => {
             s.delete_custom_playlist(&id);

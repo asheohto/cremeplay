@@ -6,7 +6,7 @@ mod state;
 mod theme;
 mod tray;
 
-use components::{artist_view, explore_view, header, home_view, library_view, now_playing, player_bar, playlist_picker_modal, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
+use components::{artist_view, explore_view, header, home_view, library_view, now_playing, player_bar, playlist_picker_modal, playlist_view, queue_drawer, rename_modal, search_view, settings_modal, sidebar};
 use state::{ActiveView, AppState};
 use theme::Theme;
 use std::time::Duration;
@@ -72,6 +72,10 @@ fn view(s: &AppState, _: &mut Cx<AppState>) -> El {
 
     if s.show_playlist_picker {
         root = root.child(playlist_picker_modal::render(s).absolute(0.0, 0.0).w_full().h_full());
+    }
+
+    if s.show_rename_playlist_modal {
+        root = root.child(rename_modal::render(s).absolute(0.0, 0.0).w_full().h_full());
     }
 
     root
@@ -414,6 +418,11 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         if s.show_playlist_picker {
             s.show_playlist_picker = false;
             s.playlist_picker_track = None;
+            return true;
+        }
+        if s.show_rename_playlist_modal {
+            s.show_rename_playlist_modal = false;
+            s.rename_playlist_id = None;
             return true;
         }
     }

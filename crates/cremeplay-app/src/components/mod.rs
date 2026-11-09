@@ -8,6 +8,7 @@ pub mod player_bar;
 pub mod playlist_picker_modal;
 pub mod playlist_view;
 pub mod queue_drawer;
+pub mod rename_modal;
 pub mod search_view;
 pub mod settings_modal;
 pub mod sidebar;

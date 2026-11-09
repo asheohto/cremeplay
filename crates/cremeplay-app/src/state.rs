@@ -97,6 +97,9 @@ pub struct AppState {
     pub auth_cookie_edit: TextEdit,
     pub show_playlist_picker: bool,
     pub playlist_picker_track: Option<TrackItem>,
+    pub show_rename_playlist_modal: bool,
+    pub rename_playlist_id: Option<String>,
+    pub rename_playlist_edit: TextEdit,
 
     // Library & Feed
     pub home_sections: Vec<HomeSection>,
@@ -230,6 +233,9 @@ impl AppState {
             auth_cookie_edit: TextEdit::default(),
             show_playlist_picker: false,
             playlist_picker_track: None,
+            show_rename_playlist_modal: false,
+            rename_playlist_id: None,
+            rename_playlist_edit: TextEdit::default(),
 
             home_sections: Vec::new(),
             is_loading_home: true,
@@ -400,6 +406,24 @@ impl AppState {
             if current.browse_id == id {
                 self.current_playlist = None;
                 self.navigate_to(ActiveView::Library);
+            }
+        }
+    }
+
+    pub fn rename_custom_playlist(&mut self, id: &str, new_title: String) {
+        let trimmed = new_title.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id) {
+            pl.title = trimmed.to_string();
+            let mut cfg = self.config_mgr.get();
+            cfg.custom_playlists = self.custom_playlists.clone();
+            self.config_mgr.save(cfg);
+        }
+        if let Some(current) = &mut self.current_playlist {
+            if current.browse_id == id {
+                current.title = trimmed.to_string();
             }
         }
     }

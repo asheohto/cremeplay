@@ -71,29 +71,50 @@ pub fn render(s: &AppState) -> El {
         });
 
     let is_custom = pl.browse_id.starts_with("cp-pl-");
-    let delete_btn = if is_custom {
+    let (rename_btn, delete_btn) = if is_custom {
         let pl_id = pl.browse_id.clone();
-        Some(
-            row()
-                .key("btn-delete-pl")
-                .h(40.0)
-                .px(16.0)
-                .radius(20.0)
-                .fill(t.hover)
-                .border(1.0, t.border)
-                .center_y()
-                .gap(8.0)
-                .child(icon(&icons::CLOSE, 16.0).color(t.muted))
-                .child(text("Delete Playlist").font(typo::LABEL).color(t.heading))
-                .on_press(move |s: &mut AppState| {
-                    s.delete_custom_playlist(&pl_id);
-                }),
-        )
+        let pl_title = pl.title.clone();
+        let pl_id_del = pl.browse_id.clone();
+        let ren = row()
+            .key("btn-rename-pl")
+            .h(40.0)
+            .px(16.0)
+            .radius(20.0)
+            .fill(t.hover)
+            .border(1.0, t.border)
+            .center_y()
+            .gap(8.0)
+            .child(icon(&icons::SETTINGS, 16.0).color(t.heading))
+            .child(text("Rename").font(typo::LABEL).color(t.heading))
+            .on_press(move |s: &mut AppState| {
+                s.rename_playlist_id = Some(pl_id.clone());
+                s.rename_playlist_edit = rune::TextEdit::new(pl_title.clone());
+                s.show_rename_playlist_modal = true;
+            });
+
+        let del = row()
+            .key("btn-delete-pl")
+            .h(40.0)
+            .px(16.0)
+            .radius(20.0)
+            .fill(t.hover)
+            .border(1.0, t.border)
+            .center_y()
+            .gap(8.0)
+            .child(icon(&icons::CLOSE, 16.0).color(t.muted))
+            .child(text("Delete Playlist").font(typo::LABEL).color(t.heading))
+            .on_press(move |s: &mut AppState| {
+                s.delete_custom_playlist(&pl_id_del);
+            });
+        (Some(ren), Some(del))
     } else {
-        None
+        (None, None)
     };
 
     let mut actions = row().gap(12.0).center_y().child(play_all_btn);
+    if let Some(ren) = rename_btn {
+        actions = actions.child(ren);
+    }
     if let Some(del) = delete_btn {
         actions = actions.child(del);
     }
