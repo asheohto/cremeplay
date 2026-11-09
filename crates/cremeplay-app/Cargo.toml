@@ -21,3 +21,6 @@ log = "0.4"
 image = "0.25"
 dirs = "6.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
