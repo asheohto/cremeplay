@@ -210,6 +210,9 @@ impl AudioPlayer {
         let dur = *self.duration.lock().unwrap();
         let target = seconds.clamp(0.0, dur.max(0.0));
         *self.elapsed_offset.lock().unwrap() = target;
+        if let Some(player) = self.player.lock().unwrap().as_ref() {
+            let _ = player.try_seek(std::time::Duration::from_secs_f64(target));
+        }
         if self.is_playing.load(Ordering::Relaxed) {
             *self.playback_start_instant.lock().unwrap() = Some(Instant::now());
         } else {
