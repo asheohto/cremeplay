@@ -112,12 +112,82 @@ pub fn render(s: &AppState) -> El {
                 );
             }
         } else {
+            let queue_summary = row()
+                .w_full()
+                .justify_between()
+                .center_y()
+                .pb(8.0)
+                .child(
+                    text(format!("{} tracks in queue", s.queue.len()))
+                        .font(typo::CAPTION)
+                        .color(t.muted),
+                )
+                .child(
+                    el()
+                        .key("btn-clear-queue")
+                        .h(24.0)
+                        .px(8.0)
+                        .radius(4.0)
+                        .fill(t.hover)
+                        .center()
+                        .child(text("Clear Up Next").font(typo::CAPTION).color(t.brand_text))
+                        .on_press(|s: &mut AppState| {
+                            if let Some(cur) = s.current_track.clone() {
+                                s.queue = vec![cur];
+                                s.queue_index = 0;
+                            } else {
+                                s.queue.clear();
+                                s.queue_index = 0;
+                            }
+                        }),
+                );
+            queue_list = queue_list.child(queue_summary);
+
             for (idx, item) in s.queue.iter().enumerate() {
                 let is_current = idx == s.queue_index;
                 let bg = if is_current { t.band } else { t.hover };
                 let border_col = if is_current { t.brand } else { rune::Color::TRANSPARENT };
 
                 let track_item = item.clone();
+                let play_click = row()
+                    .grow(1.0)
+                    .center_y()
+                    .gap(10.0)
+                    .child(
+                        el()
+                            .size(32.0, 32.0)
+                            .radius(6.0)
+                            .fill(t.band)
+                            .center()
+                            .child(icon(if is_current { &icons::PLAY } else { &icons::MUSIC_NOTE }, 16.0).color(if is_current { t.brand } else { t.muted })),
+                    )
+                    .child(
+                        col()
+                            .gap(2.0)
+                            .child(text(&item.title).font(typo::LABEL).color(if is_current { t.brand_text } else { t.heading }))
+                            .child(text(&item.artist).font(typo::CAPTION).color(t.muted)),
+                    )
+                    .on_press(move |s: &mut AppState| {
+                        s.queue_index = idx;
+                        s.play_track(track_item.clone());
+                    });
+
+                let remove_btn = el()
+                    .key(format!("queue-remove-{}", idx))
+                    .size(24.0, 24.0)
+                    .radius(12.0)
+                    .fill(t.hover)
+                    .center()
+                    .child(icon(&icons::CLOSE, 12.0).color(t.muted))
+                    .on_press(move |s: &mut AppState| {
+                        if idx < s.queue.len() {
+                            s.queue.remove(idx);
+                            if s.queue_index >= idx && s.queue_index > 0 {
+                                s.queue_index -= 1;
+                            }
+                        }
+                    });
+
                 let queue_card = row()
                     .key(format!("queue-item-{}", idx))
                     .w_full()
@@ -128,29 +198,8 @@ pub fn render(s: &AppState) -> El {
                     .justify_between()
                     .fill(bg)
                     .border(1.0, border_col)
-                    .child(
-                        row()
-                            .center_y()
-                            .gap(10.0)
-                            .child(
-                                el()
-                                    .size(32.0, 32.0)
-                                    .radius(6.0)
-                                    .fill(t.band)
-                                    .center()
-                                    .child(icon(&icons::MUSIC_NOTE, 16.0).color(t.muted)),
-                            )
-                            .child(
-                                col()
-                                    .gap(2.0)
-                                    .child(text(&item.title).font(typo::LABEL).color(t.heading))
-                                    .child(text(&item.artist).font(typo::CAPTION).color(t.muted)),
-                            ),
-                    )
-                    .on_press(move |s: &mut AppState| {
-                        s.queue_index = idx;
-                        s.play_track(track_item.clone());
-                    });
+                    .child(play_click)
+                    .child(remove_btn);
 
                 queue_list = queue_list.child(queue_card);
             }
