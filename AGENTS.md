@@ -118,6 +118,7 @@ Rune supports deterministic CLI testing flags:
 ### 5. Multi-Language Romanization & English Exemption
 * **Native Pure-Rust Romanizer (`crates/cremeplay-core/src/romanize.rs`)**:
   * Zero external dependencies, ultra-low memory.
+  * Chinese Hanzi Pinyin binary-searched lookup (`hanzi_table.rs`, 1,411 common entries) with syllabic spacing.
   * Algorithmic decomposition of Korean Hangul syllables (Initial, Medial, Final).
   * Japanese Kana (Hiragana & Katakana) Hepburn mapping with digraphs, sokuon, and prolonged vowels.
   * Cyrillic (Russian, Ukrainian, Slavic) and Modern Greek with tonos accents.
