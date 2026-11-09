@@ -193,5 +193,149 @@ pub fn render(s: &AppState) -> El {
         );
     }
 
+    // Albums Shelf
+    if !results.albums.is_empty() {
+        let albums_header = text("Albums").font(typo::TITLE).color(t.heading);
+        let mut albums_row = row().w_full().gap(16.0);
+
+        for (idx, album) in results.albums.iter().take(6).enumerate() {
+            let thumb = if let Some(img) = s.get_image(&album.artwork_url) {
+                el()
+                    .size(130.0, 130.0)
+                    .radius(10.0)
+                    .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+            } else {
+                el()
+                    .size(130.0, 130.0)
+                    .radius(10.0)
+                    .fill(t.band)
+                    .center()
+                    .child(icon(&icons::QUEUE, 32.0).color(t.muted))
+            };
+
+            let browse_id = album.browse_id.clone().unwrap_or_default();
+            let card = col()
+                .key(format!("search-album-{}", idx))
+                .w(144.0)
+                .padding(8.0)
+                .radius(12.0)
+                .fill(t.panel)
+                .border(1.0, t.border)
+                .gap(6.0)
+                .child(thumb)
+                .child(text(&album.title).font(typo::LABEL).color(t.heading))
+                .child(text(&album.subtitle).font(typo::CAPTION).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    if !browse_id.is_empty() {
+                        s.load_playlist(&browse_id);
+                    }
+                });
+
+            albums_row = albums_row.child(card);
+        }
+
+        content = content.child(
+            col()
+                .gap(14.0)
+                .child(albums_header)
+                .child(albums_row),
+        );
+    }
+
+    // Featured Playlists Shelf
+    if !results.playlists.is_empty() {
+        let pl_header = text("Featured Playlists").font(typo::TITLE).color(t.heading);
+        let mut pl_row = row().w_full().gap(16.0);
+
+        for (idx, pl) in results.playlists.iter().take(6).enumerate() {
+            let thumb = if let Some(img) = s.get_image(&pl.artwork_url) {
+                el()
+                    .size(130.0, 130.0)
+                    .radius(10.0)
+                    .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+            } else {
+                el()
+                    .size(130.0, 130.0)
+                    .radius(10.0)
+                    .fill(t.band)
+                    .center()
+                    .child(icon(&icons::QUEUE, 32.0).color(t.muted))
+            };
+
+            let browse_id = pl.browse_id.clone().unwrap_or_default();
+            let card = col()
+                .key(format!("search-pl-{}", idx))
+                .w(144.0)
+                .padding(8.0)
+                .radius(12.0)
+                .fill(t.panel)
+                .border(1.0, t.border)
+                .gap(6.0)
+                .child(thumb)
+                .child(text(&pl.title).font(typo::LABEL).color(t.heading))
+                .child(text(&pl.subtitle).font(typo::CAPTION).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    if !browse_id.is_empty() {
+                        s.load_playlist(&browse_id);
+                    }
+                });
+
+            pl_row = pl_row.child(card);
+        }
+
+        content = content.child(
+            col()
+                .gap(14.0)
+                .child(pl_header)
+                .child(pl_row),
+        );
+    }
+
+    // Artists Shelf
+    if !results.artists.is_empty() {
+        let artists_header = text("Artists").font(typo::TITLE).color(t.heading);
+        let mut artists_row = row().w_full().gap(16.0);
+
+        for (idx, artist) in results.artists.iter().take(6).enumerate() {
+            let thumb = if let Some(img) = s.get_image(&artist.artwork_url) {
+                el()
+                    .size(100.0, 100.0)
+                    .radius(50.0)
+                    .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+            } else {
+                el()
+                    .size(100.0, 100.0)
+                    .radius(50.0)
+                    .fill(t.band)
+                    .center()
+                    .child(icon(&icons::MUSIC_NOTE, 32.0).color(t.brand))
+            };
+
+            let artist_name = artist.title.clone();
+            let card = col()
+                .key(format!("search-artist-{}", idx))
+                .w(120.0)
+                .padding(8.0)
+                .radius(12.0)
+                .center()
+                .gap(8.0)
+                .child(thumb)
+                .child(text(&artist.title).font(typo::LABEL).color(t.heading))
+                .child(text("Artist").font(typo::CAPTION).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.trigger_search(artist_name.clone());
+                });
+
+            artists_row = artists_row.child(card);
+        }
+
+        content = content.child(
+            col()
+                .gap(14.0)
+                .child(artists_header)
+                .child(artists_row),
+        );
+    }
+
     content
 }
