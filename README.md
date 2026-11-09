@@ -43,7 +43,7 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 
 | Metric | Pear Desktop (Electron) | Webview Wrappers | Cremeplay (Tauri v2) | **Cremeplay (Rune Native GPU)** |
 | :--- | :--- | :--- | :--- | :--- |
-| **RAM (Active Playback)** | ~600 MB - 850 MB+ | ~250 MB - 400 MB | ~140 MB | **~30 MB (Idle: ~7.8 MB)** |
+| **RAM (Active Playback)** | ~600 MB - 850 MB+ | ~250 MB - 400 MB | ~140 MB | **~28 MB (Idle: ~3.8 MB)** |
 | **UI Engine** | Chromium Web Browser | WebView2 / Edge | WebView2 | **100% Native Rust GPU (`wgpu` + `taffy`)** |
 | **Chromium Processes** | 6-10 loose processes | Multiple Edge processes | Managed WebView2 | **ZERO (Zero Chromium, Zero WebView2)** |
 | **Audio Output** | Chromium Web Audio | Edge audio | Native WASAPI | **Direct WASAPI (Rodio 0.22 + Symphonia)** |
@@ -55,7 +55,7 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 
 ## Features
 
-- **Rune Native GPU Engine (Webviewless)**: Built with Rune (`wgpu`, `taffy`, `parley`) delivering 60 FPS GPU-accelerated rendering with **zero Chromium and zero WebView2** overhead (**~7.8 MB idle / ~30 MB active playback**).
+- **Rune Native GPU Engine (Webviewless)**: Built with Rune (`wgpu`, `taffy`, `parley`) delivering 60 FPS GPU-accelerated rendering with **zero Chromium and zero WebView2** overhead (**~3.8 MB idle / ~28 MB active playback**).
 - **Concurrent Multi-Source Lyrics Subsystem**:
   - Automatically queries **Better-Lyrics (TTML word/line-by-line sync)**, **LRCLIB**, **YouTube Captions**, and **Genius** simultaneously.
   - Interactive source-switching pills (`[Better-Lyrics]`, `[LRCLIB]`, `[YouTube Captions]`, `[Custom]`).
