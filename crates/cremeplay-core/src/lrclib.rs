@@ -748,11 +748,10 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
 
     while let Some(p_start) = ttml_text[cursor..].find("<p ") {
         let abs_start = cursor + p_start;
-        let end_tag_rel = ttml_text[abs_start..].find("</p>");
-        if end_tag_rel.is_none() {
+        let Some(end_tag_rel) = ttml_text[abs_start..].find("</p>") else {
             break;
-        }
-        let abs_end = abs_start + end_tag_rel.unwrap();
+        };
+        let abs_end = abs_start + end_tag_rel;
         let tag_and_content = &ttml_text[abs_start..abs_end];
         cursor = abs_end + 4;
 

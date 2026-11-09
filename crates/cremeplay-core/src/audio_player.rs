@@ -120,7 +120,10 @@ impl AudioPlayer {
                 Err(e) => return Err(format!("No audio output device available: {:?}", e)),
             }
         }
-        let sink = sink_guard.as_ref().unwrap();
+        let sink = match sink_guard.as_ref() {
+            Some(s) => s,
+            None => return Err("Audio sink failed to initialize".to_string()),
+        };
 
         let new_player = Player::connect_new(&sink.mixer());
         let vol = *self.volume.lock().unwrap();
