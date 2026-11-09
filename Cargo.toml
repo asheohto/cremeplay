@@ -3,5 +3,6 @@ members = [
     "crates/cremeplay-core",
     "crates/cremeplay-app",
 ]
+exclude = ["src-tauri"]
 default-members = ["crates/cremeplay-app"]
 resolver = "2"
