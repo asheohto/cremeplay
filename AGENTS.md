@@ -128,6 +128,10 @@ Rune supports deterministic CLI testing flags:
 ### 6. Settings Crash Prevention (Issue #4)
 * When updating configuration in `src-tauri/src/commands.rs`, never block on disk I/O or background manager calls. Use async channels and debounced persistence in `ConfigManager`.
 
+### 7. Rune Dynamic 2×2 Cover Art Collage & Anti-Aliased Clipping
+* When generating multi-cover collages for custom playlists with 4 or more tracks, use Rune's native `clip_rounded(radius)` on the parent `col()` container enclosing two 50% height rows.
+* Do not apply manual corner radiuses to individual interior quadrant tiles; `clip_rounded` performs hardware-accelerated anti-aliased stencil clipping at the container boundary with zero GPU/CPU overhead.
+
 ---
 
 ## 5. Build, Packaging & Release Guide
@@ -183,10 +187,12 @@ gh release create vX.X `
 ## 6. Checklist for New Features
 
 Before merging or releasing any new feature:
-- [ ] **Memory Audit**: Does RAM remain under 60 MB (tray) and under 160 MB (window)?
+- [ ] **Memory Audit**: Does RAM remain under 10 MB idle / under 35 MB active (Rune Webviewless) or under 60 MB tray / 160 MB window (Tauri v2)?
+- [ ] **Zero Clippy Warnings**: Does `cargo clippy --workspace` pass with zero warnings?
+- [ ] **Zero Test Failures**: Does `cargo test --workspace` pass with 100% success?
 - [ ] **No Unbounded DOM**: Are all list renders capped or paginated?
 - [ ] **GPU-Only CSS Animations**: Are all transitions limited to `transform` and `opacity`?
 - [ ] **Referrer Policy**: Is `<meta name="referrer" content="unsafe-url" />` intact?
 - [ ] **Settings Non-blocking**: Are all settings writes debounced and non-blocking?
-- [ ] **Clean Build**: Does `npm run build` in `frontend/` and `cargo check --manifest-path src-tauri/Cargo.toml` succeed with zero errors?
+- [ ] **Clean Build**: Does `cargo check --workspace` succeed with zero errors?
 
