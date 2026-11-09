@@ -158,9 +158,33 @@ pub fn render(s: &AppState) -> El {
                 .child(np_like_btn)
                 .child(np_visualizer);
 
+            let speeds: [f32; 5] = [0.75, 1.0, 1.25, 1.5, 2.0];
+            let mut speed_row = row().gap(8.0).center_y();
+            for &spd in &speeds {
+                let is_cur = (s.playback_speed - spd).abs() < 0.01;
+                let label = if (spd - 1.0).abs() < 0.01 { "Normal (1x)".to_string() } else { format!("{}x", spd) };
+                let pill = el()
+                    .key(format!("spd-{}", spd))
+                    .h(28.0)
+                    .px(12.0)
+                    .radius(14.0)
+                    .center()
+                    .fill(if is_cur { t.brand } else { t.hover })
+                    .border(1.0, if is_cur { t.brand } else { t.border })
+                    .child(
+                        text(label)
+                            .font(typo::CAPTION)
+                            .color(if is_cur { t.brand_text } else { t.heading }),
+                    )
+                    .on_press(move |s: &mut AppState| {
+                        s.set_playback_speed(spd);
+                    });
+                speed_row = speed_row.child(pill);
+            }
+
             col()
                 .center()
-                .gap(24.0)
+                .gap(20.0)
                 .child(cover_artwork)
                 .child(
                     col()
@@ -170,6 +194,7 @@ pub fn render(s: &AppState) -> El {
                         .child(text(artist_str).font(typo::SUBTITLE).color(t.muted)),
                 )
                 .child(actions_row)
+                .child(speed_row)
         }
         NowPlayingTab::Queue => {
             let mut queue_list = col().w(640.0).gap(8.0).py(20.0);

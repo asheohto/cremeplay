@@ -53,6 +53,7 @@ pub struct AppStatusDto {
     pub show_sleep_timer_menu: bool,
     pub audio_output_device: Option<String>,
     pub audio_devices: Vec<String>,
+    pub playback_speed: f32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -65,6 +66,7 @@ pub enum AgentAction {
     Prev,
     Seek { time: f64 },
     Volume { value: f32 },
+    SetSpeed { value: f32 },
     Mute { value: Option<bool> },
     Search { query: String },
     SearchInput { text: String },
@@ -276,6 +278,7 @@ async fn handle_request(
                     show_sleep_timer_menu: s.show_sleep_timer_menu,
                     audio_output_device: s.player.get_output_device(),
                     audio_devices: s.audio_devices.clone(),
+                    playback_speed: s.playback_speed,
                 };
                 let _ = tx.send(dto);
             });
@@ -428,6 +431,10 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
             s.is_muted = false;
             s.player.set_volume(s.volume);
             format!(r#"{{"status":"ok","action":"volume","volume":{}}}"#, s.volume)
+        }
+        AgentAction::SetSpeed { value } => {
+            s.set_playback_speed(value);
+            format!(r#"{{"status":"ok","action":"set_speed","speed":{}}}"#, s.playback_speed)
         }
         AgentAction::Mute { value } => {
             let mute = value.unwrap_or(!s.is_muted);

@@ -150,6 +150,9 @@ pub struct AppState {
     // Audio Output Devices
     pub audio_devices: Vec<String>,
 
+    // Playback Speed
+    pub playback_speed: f32,
+
     // Core Managers
     pub player: Arc<AudioPlayer>,
     pub innertube: Arc<InnertubeClient>,
@@ -267,6 +270,7 @@ impl AppState {
             show_sleep_timer_menu: false,
 
             audio_devices,
+            playback_speed: 1.0,
 
             player,
             innertube,
@@ -348,6 +352,11 @@ impl AppState {
         let mut cfg = self.config_mgr.get();
         cfg.audio_output_device = device;
         self.config_mgr.save(cfg);
+    }
+
+    pub fn set_playback_speed(&mut self, speed: f32) {
+        self.playback_speed = speed;
+        self.player.set_speed(speed);
     }
 
     pub fn load_artist(&mut self, browse_id: &str) {

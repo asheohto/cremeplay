@@ -34,6 +34,7 @@ pub struct AudioPlayer {
     elapsed_offset: Arc<Mutex<f64>>,
     duration: Arc<Mutex<f64>>,
     volume: Arc<Mutex<f32>>,
+    speed: Arc<Mutex<f32>>,
     segments: Arc<Mutex<Vec<SponsorSegment>>>,
     sponsorblock: Arc<SponsorBlockClient>,
     selected_device_name: Arc<Mutex<Option<String>>>,
@@ -58,6 +59,28 @@ impl AudioPlayer {
         self.selected_device_name.lock().unwrap().clone()
     }
 
+    pub fn set_speed(&self, spd: f32) {
+        let clamped = spd.clamp(0.25, 4.0);
+        let mut speed_guard = self.speed.lock().unwrap();
+        if *speed_guard != clamped {
+            if self.is_playing.load(Ordering::Relaxed) {
+                let mut start_guard = self.playback_start_instant.lock().unwrap();
+                if let Some(start) = start_guard.take() {
+                    *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64() * (*speed_guard as f64);
+                    *start_guard = Some(Instant::now());
+                }
+            }
+            *speed_guard = clamped;
+            if let Some(player) = self.player.lock().unwrap().as_ref() {
+                player.set_speed(clamped);
+            }
+        }
+    }
+
+    pub fn get_speed(&self) -> f32 {
+        *self.speed.lock().unwrap()
+    }
+
     pub fn new() -> Self {
         Self {
             player: Arc::new(Mutex::new(None)),
@@ -68,6 +91,7 @@ impl AudioPlayer {
             elapsed_offset: Arc::new(Mutex::new(0.0)),
             duration: Arc::new(Mutex::new(0.0)),
             volume: Arc::new(Mutex::new(1.0)),
+            speed: Arc::new(Mutex::new(1.0)),
             segments: Arc::new(Mutex::new(Vec::new())),
             sponsorblock: Arc::new(SponsorBlockClient::new()),
             selected_device_name: Arc::new(Mutex::new(None)),
@@ -164,6 +188,8 @@ impl AudioPlayer {
         let new_player = Player::connect_new(&sink.mixer());
         let vol = *self.volume.lock().unwrap();
         new_player.set_volume(vol);
+        let spd = *self.speed.lock().unwrap();
+        new_player.set_speed(spd);
         new_player.append(source);
         new_player.play();
 
@@ -192,7 +218,8 @@ impl AudioPlayer {
                 self.is_playing.store(false, Ordering::Relaxed);
                 let mut start_guard = self.playback_start_instant.lock().unwrap();
                 if let Some(start) = start_guard.take() {
-                    *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64();
+                    let spd = *self.speed.lock().unwrap() as f64;
+                    *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64() * spd;
                 }
                 false
             } else {
@@ -214,7 +241,8 @@ impl AudioPlayer {
                 self.is_playing.store(false, Ordering::Relaxed);
                 let mut start_guard = self.playback_start_instant.lock().unwrap();
                 if let Some(start) = start_guard.take() {
-                    *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64();
+                    let spd = *self.speed.lock().unwrap() as f64;
+                    *self.elapsed_offset.lock().unwrap() += start.elapsed().as_secs_f64() * spd;
                 }
             }
         }
@@ -273,7 +301,8 @@ impl AudioPlayer {
         let mut current_sec = *self.elapsed_offset.lock().unwrap();
         if playing {
             if let Some(start) = *self.playback_start_instant.lock().unwrap() {
-                current_sec += start.elapsed().as_secs_f64();
+                let spd = *self.speed.lock().unwrap() as f64;
+                current_sec += start.elapsed().as_secs_f64() * spd;
             }
 
             // Check SponsorBlock segments
