@@ -13,7 +13,7 @@ pub struct AppConfig {
     pub tuna_obs: bool,
     pub media_controls: bool,
     pub close_to_tray: bool,
-    #[serde(default = "default_false")]
+    #[serde(default = "default_true")]
     pub autoplay: bool,
     #[serde(default = "default_volume")]
     pub volume: f32,
@@ -91,7 +91,7 @@ impl Default for AppConfig {
             tuna_obs: true,
             media_controls: true,
             close_to_tray: true,
-            autoplay: false,
+            autoplay: true,
             volume: 1.0,
             animations: true,
             romanize_lyrics: true,
