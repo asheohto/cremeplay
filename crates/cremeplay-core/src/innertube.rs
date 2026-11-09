@@ -1635,6 +1635,7 @@ impl InnertubeClient {
             lines.push(crate::lrclib::LyricLine {
                 time_sec: (start_ms / 10.0).round() / 100.0,
                 text: combined,
+                romanized: None,
             });
             words.clear();
         };
@@ -1645,6 +1646,7 @@ impl InnertubeClient {
                 lines.push(crate::lrclib::LyricLine {
                     time_sec: (cue.start_ms / 10.0).round() / 100.0,
                     text: "♪".to_string(),
+                    romanized: None,
                 });
                 cur_start_ms = cue.start_ms + cue.duration_ms;
                 cur_end_ms = cur_start_ms;

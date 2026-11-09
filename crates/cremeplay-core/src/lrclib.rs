@@ -9,6 +9,8 @@ use std::time::Duration;
 pub struct LyricLine {
     pub time_sec: f64,
     pub text: String,
+    #[serde(default)]
+    pub romanized: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,6 +224,7 @@ impl LrclibClient {
                 lines: vec![LyricLine {
                     time_sec: 0.0,
                     text: "♪ Instrumental ♪".to_string(),
+                    romanized: None,
                 }],
                 plain_lyrics: "Instrumental".to_string(),
                 available_sources: vec!["LRCLIB".to_string()],
@@ -487,6 +490,7 @@ pub fn parse_lrc(lrc_text: &str) -> Vec<LyricLine> {
             lines.push(LyricLine {
                 time_sec: (adjusted_time * 100.0).round() / 100.0,
                 text: final_text.clone(),
+                romanized: None,
             });
         }
     }
@@ -574,6 +578,7 @@ pub fn parse_ttml(ttml_text: &str) -> Vec<LyricLine> {
                         lines.push(LyricLine {
                             time_sec: (time_sec * 100.0).round() / 100.0,
                             text: final_line,
+                            romanized: None,
                         });
                     }
                 }

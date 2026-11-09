@@ -227,16 +227,30 @@ pub fn render(s: &AppState) -> El {
                         let is_active = (s.current_time - line_time).abs() < 1.5;
                         let line_text = line.text.clone();
                         let target_sec = line_time;
+
+                        let mut line_box = col()
+                            .center()
+                            .gap(3.0)
+                            .child(
+                                text(&line_text)
+                                    .font(if is_active { typo::HERO } else { typo::TITLE })
+                                    .color(if is_active { t.brand } else { t.muted }),
+                            );
+
+                        if let Some(rom) = &line.romanized {
+                            line_box = line_box.child(
+                                text(rom)
+                                    .font(typo::CAPTION)
+                                    .color(if is_active { t.brand_text } else { t.muted }),
+                            );
+                        }
+
                         lyrics_col = lyrics_col.child(
                             el()
                                 .radius(8.0)
                                 .px(16.0)
                                 .py(6.0)
-                                .child(
-                                    text(&line_text)
-                                        .font(if is_active { typo::HERO } else { typo::TITLE })
-                                        .color(if is_active { t.brand } else { t.muted }),
-                                )
+                                .child(line_box)
                                 .on_press(move |s: &mut AppState| {
                                     s.current_time = target_sec;
                                     s.player.seek(target_sec);

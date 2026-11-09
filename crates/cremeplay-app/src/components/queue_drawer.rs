@@ -176,17 +176,26 @@ pub fn render(s: &AppState) -> El {
                     let line_text = line.text.clone();
                     let target_sec = adjusted_time;
 
+                    let mut line_box = col().gap(2.0).child(
+                        text(&line_text)
+                            .font(typo::BODY)
+                            .color(if is_active { t.brand } else { t.body }),
+                    );
+                    if let Some(rom) = &line.romanized {
+                        line_box = line_box.child(
+                            text(rom)
+                                .font(typo::CAPTION)
+                                .color(if is_active { t.brand_text } else { t.muted }),
+                        );
+                    }
+
                     lyrics_list = lyrics_list.child(
                         el()
                             .radius(6.0)
                             .px(8.0)
                             .py(4.0)
                             .fill(if is_active { t.band } else { rune::Color::TRANSPARENT })
-                            .child(
-                                text(&line_text)
-                                    .font(typo::BODY)
-                                    .color(if is_active { t.brand } else { t.body }),
-                            )
+                            .child(line_box)
                             .on_press(move |s: &mut AppState| {
                                 s.current_time = target_sec;
                                 s.player.seek(target_sec);
