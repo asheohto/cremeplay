@@ -4,6 +4,7 @@ pub mod icons;
 mod media_keys;
 mod state;
 mod theme;
+mod tray;
 
 use components::{artist_view, explore_view, header, home_view, library_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
 use state::{ActiveView, AppState};
@@ -497,6 +498,12 @@ fn start_memory_trimmer() {
     });
 }
 
+fn on_close(s: &mut AppState, tx: &mut Tx) {
+    if !s.config_mgr.get().close_to_tray {
+        tx.quit();
+    }
+}
+
 fn main() {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -512,10 +519,13 @@ fn main() {
     spec.poll = Some(poll);
     spec.on_key = Some(on_key);
 
-    let app = rune::App::new(spec);
+    let app = rune::App::new(spec)
+        .keep_running()
+        .on_close(on_close);
     let handle = app.handle();
     agent_server::start(handle.clone());
-    media_keys::start(handle);
+    media_keys::start(handle.clone());
+    let _tray = tray::start(handle);
 
     app.run();
 }
