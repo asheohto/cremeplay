@@ -229,10 +229,24 @@ pub fn render(s: &AppState) -> El {
             }
         });
 
+    let add_pl_btn = el()
+        .key("btn-add-playlist")
+        .size(36.0, 36.0)
+        .radius(18.0)
+        .center()
+        .fill(rune::Color::TRANSPARENT)
+        .child(icon(&icons::NEW_PLAYLIST, 18.0).color(t.muted))
+        .on_press(|s: &mut AppState| {
+            if let Some(track) = s.current_track.clone() {
+                s.playlist_picker_track = Some(track);
+                s.show_playlist_picker = true;
+            }
+        });
+
     let mid = row()
         .key("bar-mid")
         .center_y()
-        .gap(14.0)
+        .gap(10.0)
         .px(10.0)
         .py(6.0)
         .radius(10.0)
@@ -240,6 +254,7 @@ pub fn render(s: &AppState) -> El {
         .child(thumb)
         .child(meta)
         .child(like_btn)
+        .child(add_pl_btn)
         .on_press(|s: &mut AppState| {
             s.show_now_playing = !s.show_now_playing;
         });

@@ -95,6 +95,8 @@ pub struct AppState {
     pub show_settings: bool,
     pub settings_tab: SettingsTab,
     pub auth_cookie_edit: TextEdit,
+    pub show_playlist_picker: bool,
+    pub playlist_picker_track: Option<TrackItem>,
 
     // Library & Feed
     pub home_sections: Vec<HomeSection>,
@@ -226,6 +228,8 @@ impl AppState {
             show_settings: false,
             settings_tab: SettingsTab::General,
             auth_cookie_edit: TextEdit::default(),
+            show_playlist_picker: false,
+            playlist_picker_track: None,
 
             home_sections: Vec::new(),
             is_loading_home: true,

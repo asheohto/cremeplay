@@ -5,6 +5,7 @@ pub mod home_view;
 pub mod library_view;
 pub mod now_playing;
 pub mod player_bar;
+pub mod playlist_picker_modal;
 pub mod playlist_view;
 pub mod queue_drawer;
 pub mod search_view;

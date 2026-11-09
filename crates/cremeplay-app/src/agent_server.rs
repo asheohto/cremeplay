@@ -55,6 +55,7 @@ pub struct AppStatusDto {
     pub audio_devices: Vec<String>,
     pub playback_speed: f32,
     pub custom_playlists_count: usize,
+    pub show_playlist_picker: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -75,6 +76,7 @@ pub enum AgentAction {
     ToggleDrawer,
     ToggleNowPlaying,
     ToggleSettings,
+    TogglePlaylistPicker,
     ToggleLike,
     ToggleSleepTimerMenu,
     SleepTimer { mins: Option<u32>, end_of_track: Option<bool> },
@@ -284,6 +286,7 @@ async fn handle_request(
                     audio_devices: s.audio_devices.clone(),
                     playback_speed: s.playback_speed,
                     custom_playlists_count: s.custom_playlists.len(),
+                    show_playlist_picker: s.show_playlist_picker,
                 };
                 let _ = tx.send(dto);
             });
@@ -495,6 +498,13 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::ToggleSettings => {
             s.show_settings = !s.show_settings;
             format!(r#"{{"status":"ok","action":"toggle_settings","show":{}}}"#, s.show_settings)
+        }
+        AgentAction::TogglePlaylistPicker => {
+            s.show_playlist_picker = !s.show_playlist_picker;
+            if s.show_playlist_picker && s.playlist_picker_track.is_none() {
+                s.playlist_picker_track = s.current_track.clone();
+            }
+            format!(r#"{{"status":"ok","action":"toggle_playlist_picker","show":{}}}"#, s.show_playlist_picker)
         }
         AgentAction::ToggleLike => {
             if let Some(track) = s.current_track.clone() {
