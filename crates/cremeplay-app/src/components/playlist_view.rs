@@ -29,8 +29,47 @@ pub fn render(s: &AppState) -> El {
         }
     };
 
+    let is_custom = pl.browse_id.starts_with("cp-pl-");
+
     // 1. Playlist Header Banner
-    let pl_thumb = if let Some(img) = s.get_image(&pl.artwork_url) {
+    let pl_thumb = if is_custom && pl.tracks.len() >= 4 {
+        let mut imgs = Vec::new();
+        for trk in pl.tracks.iter().take(4) {
+            if let Some(img) = s.get_image(&trk.artwork_url) {
+                imgs.push(img);
+            }
+        }
+        if imgs.len() == 4 {
+            col()
+                .size(160.0, 160.0)
+                .radius(16.0)
+                .clip_rounded(16.0)
+                .child(
+                    row()
+                        .size(160.0, 80.0)
+                        .child(el().size(80.0, 80.0).pixels_fit(imgs[0].pixels(), rune::SurfaceFit::Fill))
+                        .child(el().size(80.0, 80.0).pixels_fit(imgs[1].pixels(), rune::SurfaceFit::Fill))
+                )
+                .child(
+                    row()
+                        .size(160.0, 80.0)
+                        .child(el().size(80.0, 80.0).pixels_fit(imgs[2].pixels(), rune::SurfaceFit::Fill))
+                        .child(el().size(80.0, 80.0).pixels_fit(imgs[3].pixels(), rune::SurfaceFit::Fill))
+                )
+        } else if let Some(img) = s.get_image(&pl.artwork_url) {
+            el()
+                .size(160.0, 160.0)
+                .radius(16.0)
+                .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+        } else {
+            el()
+                .size(160.0, 160.0)
+                .radius(16.0)
+                .fill(t.band)
+                .center()
+                .child(icon(&icons::QUEUE, 48.0).color(t.muted))
+        }
+    } else if let Some(img) = s.get_image(&pl.artwork_url) {
         el()
             .size(160.0, 160.0)
             .radius(16.0)
@@ -70,7 +109,6 @@ pub fn render(s: &AppState) -> El {
             }
         });
 
-    let is_custom = pl.browse_id.starts_with("cp-pl-");
     let (rename_btn, delete_btn) = if is_custom {
         let pl_id = pl.browse_id.clone();
         let pl_title = pl.title.clone();

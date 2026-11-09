@@ -222,12 +222,55 @@ pub fn render(s: &AppState) -> El {
     pl_grid = pl_grid.child(create_card);
 
     for (idx, pl) in s.custom_playlists.iter().enumerate() {
-        let cover_url = pl
-            .cover_url
-            .as_deref()
-            .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
-        let pl_thumb = if let Some(url) = cover_url
-            && let Some(img) = s.get_image(url) {
+        let pl_thumb = if pl.tracks.len() >= 4 {
+            let mut imgs = Vec::new();
+            for trk in pl.tracks.iter().take(4) {
+                if let Some(img) = s.get_image(&trk.artwork_url) {
+                    imgs.push(img);
+                }
+            }
+            if imgs.len() == 4 {
+                col()
+                    .size(144.0, 144.0)
+                    .radius(12.0)
+                    .clip_rounded(12.0)
+                    .child(
+                        row()
+                            .size(144.0, 72.0)
+                            .child(el().size(72.0, 72.0).pixels_fit(imgs[0].pixels(), rune::SurfaceFit::Fill))
+                            .child(el().size(72.0, 72.0).pixels_fit(imgs[1].pixels(), rune::SurfaceFit::Fill))
+                    )
+                    .child(
+                        row()
+                            .size(144.0, 72.0)
+                            .child(el().size(72.0, 72.0).pixels_fit(imgs[2].pixels(), rune::SurfaceFit::Fill))
+                            .child(el().size(72.0, 72.0).pixels_fit(imgs[3].pixels(), rune::SurfaceFit::Fill))
+                    )
+            } else {
+                let cover_url = pl
+                    .cover_url
+                    .as_deref()
+                    .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+                if let Some(url) = cover_url && let Some(img) = s.get_image(url) {
+                    el()
+                        .size(144.0, 144.0)
+                        .radius(12.0)
+                        .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+                } else {
+                    el()
+                        .size(144.0, 144.0)
+                        .radius(12.0)
+                        .fill(t.band)
+                        .center()
+                        .child(icon(&icons::QUEUE, 36.0).color(t.brand))
+                }
+            }
+        } else {
+            let cover_url = pl
+                .cover_url
+                .as_deref()
+                .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+            if let Some(url) = cover_url && let Some(img) = s.get_image(url) {
                 el()
                     .size(144.0, 144.0)
                     .radius(12.0)
@@ -239,7 +282,8 @@ pub fn render(s: &AppState) -> El {
                     .fill(t.band)
                     .center()
                     .child(icon(&icons::QUEUE, 36.0).color(t.brand))
-            };
+            }
+        };
 
         let pl_id = pl.id.clone();
         let card = col()
