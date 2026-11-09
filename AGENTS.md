@@ -116,8 +116,13 @@ Rune supports deterministic CLI testing flags:
 * Keep Now Playing backdrops simple with standard CSS backdrop blur on the scaled album art.
 
 ### 5. Multi-Language Romanization & English Exemption
-* Romanization engine supports Japanese (Kuroshiro/Kuromoji), Korean (Aromanize), Chinese (Pinyin), Cyrillic, Greek, and Indic.
-* **Crucial**: English songs and non-foreign lines **must never be romanized**. Always verify `hasSubstantialNonLatin()` before attempting phonetic conversion.
+* **Native Pure-Rust Romanizer (`crates/cremeplay-core/src/romanize.rs`)**:
+  * Zero external dependencies, ultra-low memory.
+  * Algorithmic decomposition of Korean Hangul syllables (Initial, Medial, Final).
+  * Japanese Kana (Hiragana & Katakana) Hepburn mapping with digraphs, sokuon, and prolonged vowels.
+  * Cyrillic (Russian, Ukrainian, Slavic) and Modern Greek with tonos accents.
+  * In `frontend/`: Uses Kuroshiro/Kuromoji dictionary files for full Kanji disambiguation.
+* **Crucial Rule**: English songs and non-foreign lines **must never be romanized**. Always verify `has_foreign_script()` / `hasSubstantialNonLatin()` before attempting phonetic conversion. Lines without non-Latin characters return `None` and are displayed in original form.
 
 ### 6. Settings Crash Prevention (Issue #4)
 * When updating configuration in `src-tauri/src/commands.rs`, never block on disk I/O or background manager calls. Use async channels and debounced persistence in `ConfigManager`.
