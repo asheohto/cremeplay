@@ -40,6 +40,9 @@ pub struct AppStatusDto {
     pub show_now_playing: bool,
     pub show_settings: bool,
     pub theme: String,
+    pub liked_count: usize,
+    pub is_current_liked: bool,
+    pub search_suggestions: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -54,10 +57,12 @@ pub enum AgentAction {
     Volume { value: f32 },
     Mute { value: Option<bool> },
     Search { query: String },
+    SearchInput { text: String },
     View { name: String },
     ToggleDrawer,
     ToggleNowPlaying,
     ToggleSettings,
+    ToggleLike,
     PlayTrack { track: TrackItem },
     Theme { name: String },
 }
@@ -231,6 +236,13 @@ async fn handle_request(
                     show_now_playing: s.show_now_playing,
                     show_settings: s.show_settings,
                     theme: s.theme.id.to_string(),
+                    liked_count: s.liked_tracks.len(),
+                    is_current_liked: s
+                        .current_track
+                        .as_ref()
+                        .map(|t| s.is_track_liked(&t.video_id))
+                        .unwrap_or(false),
+                    search_suggestions: s.search_suggestions.clone(),
                 };
                 let _ = tx.send(dto);
             });
@@ -402,6 +414,11 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
             s.trigger_search(query);
             r#"{"status":"ok","action":"search"}"#.to_string()
         }
+        AgentAction::SearchInput { text } => {
+            s.search_edit.text = text;
+            s.update_search_suggestions();
+            format!(r#"{{"status":"ok","action":"search_input","text":"{}"}}"#, s.search_edit.text)
+        }
         AgentAction::View { name } => {
             match name.to_lowercase().as_str() {
                 "home" => s.navigate_to(ActiveView::Home),
@@ -423,6 +440,15 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::ToggleSettings => {
             s.show_settings = !s.show_settings;
             format!(r#"{{"status":"ok","action":"toggle_settings","show":{}}}"#, s.show_settings)
+        }
+        AgentAction::ToggleLike => {
+            if let Some(track) = s.current_track.clone() {
+                s.toggle_like(track.clone());
+                let is_liked = s.is_track_liked(&track.video_id);
+                format!(r#"{{"status":"ok","action":"toggle_like","is_liked":{},"liked_count":{}}}"#, is_liked, s.liked_tracks.len())
+            } else {
+                r#"{"error":"no track currently playing to like"}"#.to_string()
+            }
         }
         AgentAction::PlayTrack { track } => {
             s.play_track(track);

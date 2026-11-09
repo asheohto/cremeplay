@@ -150,6 +150,14 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         state_changed = true;
     }
 
+    // Drain async search suggestions
+    if let Some(suggestions) = s.pending_suggestions.lock().unwrap().take() {
+        s.search_suggestions = suggestions;
+        state_changed = true;
+    }
+
+    s.update_search_suggestions();
+
     // Drain async lyrics
     if let Some(lyrics) = s.pending_lyrics.lock().unwrap().take() {
         s.lyrics = Some(lyrics);
@@ -239,6 +247,13 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         show_now_playing: s.show_now_playing,
         show_settings: s.show_settings,
         theme: s.theme.id.to_string(),
+        liked_count: s.liked_tracks.len(),
+        is_current_liked: s
+            .current_track
+            .as_ref()
+            .map(|t| s.is_track_liked(&t.video_id))
+            .unwrap_or(false),
+        search_suggestions: s.search_suggestions.clone(),
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

@@ -86,6 +86,31 @@ pub fn render(s: &AppState) -> El {
 
             let title_str = s.current_track.as_ref().map(|t| t.title.as_str()).unwrap_or("Not playing");
             let artist_str = s.current_track.as_ref().map(|t| t.artist.as_str()).unwrap_or("Pick a song to start");
+            let is_liked = s.current_track.as_ref().map(|t| s.is_track_liked(&t.video_id)).unwrap_or(false);
+
+            let np_like_btn = row()
+                .key("np-like-btn")
+                .h(38.0)
+                .radius(19.0)
+                .px(16.0)
+                .center_y()
+                .gap(8.0)
+                .fill(if is_liked { t.band } else { t.hover })
+                .border(1.0, if is_liked { t.brand } else { rune::Color::TRANSPARENT })
+                .child(
+                    icon(if is_liked { &icons::HEART_FILLED } else { &icons::HEART }, 18.0)
+                        .color(if is_liked { t.brand } else { t.muted }),
+                )
+                .child(
+                    text(if is_liked { "Favorited" } else { "Favorite" })
+                        .font(typo::LABEL)
+                        .color(if is_liked { t.brand_text } else { t.heading }),
+                )
+                .on_press(|s: &mut AppState| {
+                    if let Some(track) = s.current_track.clone() {
+                        s.toggle_like(track);
+                    }
+                });
 
             col()
                 .center()
@@ -98,6 +123,7 @@ pub fn render(s: &AppState) -> El {
                         .child(text(title_str).font(typo::HERO).color(t.heading))
                         .child(text(artist_str).font(typo::SUBTITLE).color(t.muted)),
                 )
+                .child(np_like_btn)
         }
         NowPlayingTab::Queue => {
             let mut queue_list = col().w(640.0).gap(8.0).py(20.0);

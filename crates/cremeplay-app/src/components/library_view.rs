@@ -106,10 +106,66 @@ pub fn render(s: &AppState) -> El {
                 .child(icon(&icons::PLAY, 22.0).color(t.brand)),
         )
         .on_press(|s: &mut AppState| {
-            s.load_playlist("LM");
+            if s.account.is_some() {
+                s.load_playlist("LM");
+            } else if !s.liked_tracks.is_empty() {
+                s.queue = s.liked_tracks.clone();
+                s.queue_index = 0;
+                let track = s.liked_tracks[0].clone();
+                s.play_track(track);
+            } else {
+                s.load_playlist("LM");
+            }
         });
 
     content = content.child(liked_hero);
+
+    if !s.liked_tracks.is_empty() {
+        let mut liked_list = col().w_full().gap(6.0);
+        for (idx, trk) in s.liked_tracks.iter().enumerate() {
+            let item = trk.clone();
+            let row_item = row()
+                .key(format!("lib-liked-song-{}", idx))
+                .w_full()
+                .h(48.0)
+                .radius(10.0)
+                .px(12.0)
+                .center_y()
+                .justify_between()
+                .fill(t.hover)
+                .child(
+                    row()
+                        .center_y()
+                        .gap(12.0)
+                        .child(
+                            el()
+                                .size(32.0, 32.0)
+                                .radius(6.0)
+                                .fill(t.band)
+                                .center()
+                                .child(icon(&icons::MUSIC_NOTE, 16.0).color(t.brand_text)),
+                        )
+                        .child(
+                            col()
+                                .gap(2.0)
+                                .child(text(&trk.title).font(typo::LABEL).color(t.heading))
+                                .child(text(&trk.artist).font(typo::CAPTION).color(t.muted)),
+                        ),
+                )
+                .child(text(&trk.duration_text).font(typo::CAPTION).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.play_track(item.clone());
+                });
+            liked_list = liked_list.child(row_item);
+        }
+        content = content.child(
+            col()
+                .w_full()
+                .gap(10.0)
+                .child(text("Favorite Tracks").font(typo::TITLE).color(t.heading))
+                .child(liked_list),
+        );
+    }
 
     // 3. User Playlists Section
     let pl_heading = text("Playlists & Albums").font(typo::TITLE).color(t.heading);

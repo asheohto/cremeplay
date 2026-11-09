@@ -90,8 +90,49 @@ pub fn render(s: &AppState) -> El {
             .child(icon(&icons::SEARCH_CLEAR, 16.0).color(t.muted))
             .on_press(|s: &mut AppState| {
                 s.search_edit.text.clear();
+                s.search_suggestions.clear();
             });
         search_bar = search_bar.child(clear_btn);
+    }
+
+    let mut search_col = rune::col()
+        .key("search-col")
+        .w(520.0)
+        .child(search_bar);
+
+    if !s.search_suggestions.is_empty() && !s.search_edit.text.is_empty() {
+        let mut sugg_list = rune::col()
+            .key("search-suggestions-dropdown")
+            .absolute(0.0, 50.0)
+            .w(520.0)
+            .radius(16.0)
+            .fill(t.panel)
+            .border(1.0, t.border)
+            .padding(6.0)
+            .gap(2.0);
+
+        for (idx, suggestion) in s.search_suggestions.iter().take(6).enumerate() {
+            let sugg = suggestion.clone();
+            let item = row()
+                .key(format!("sugg-item-{}", idx))
+                .w_full()
+                .h(38.0)
+                .radius(10.0)
+                .px(14.0)
+                .center_y()
+                .gap(12.0)
+                .fill(t.hover)
+                .child(icon(&icons::SEARCH, 16.0).color(t.muted))
+                .child(text(&sugg).font(typo::BODY).color(t.heading))
+                .on_press(move |s: &mut AppState| {
+                    s.search_edit.text = sugg.clone();
+                    s.search_suggestions.clear();
+                    s.trigger_search(sugg.clone());
+                });
+            sugg_list = sugg_list.child(item);
+        }
+
+        search_col = search_col.child(sugg_list);
     }
 
     // 4. Right Controls (Theme, Settings, Sign in)
@@ -169,6 +210,6 @@ pub fn render(s: &AppState) -> El {
         .justify_between()
         .center_y()
         .child(left)
-        .child(search_bar)
+        .child(search_col)
         .child(right)
 }

@@ -38,6 +38,8 @@ pub struct AppConfig {
     pub user_avatar: Option<String>,
     #[serde(default)]
     pub taste_artists: Vec<String>,
+    #[serde(default)]
+    pub liked_tracks: Vec<crate::innertube::TrackItem>,
 }
 
 fn default_theme() -> String {
@@ -95,6 +97,7 @@ impl Default for AppConfig {
             user_name: None,
             user_avatar: None,
             taste_artists: Vec::new(),
+            liked_tracks: Vec::new(),
         }
     }
 }

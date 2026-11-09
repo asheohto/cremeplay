@@ -55,6 +55,8 @@ pub struct AppState {
     pub search_edit: TextEdit,
     pub search_results: Option<SearchResultPayload>,
     pub is_searching: bool,
+    pub search_suggestions: Vec<String>,
+    pub last_suggestion_query: String,
     pub current_playlist: Option<PlaylistDetail>,
     pub is_loading_playlist: bool,
     pub nav_history: Vec<ActiveView>,
@@ -100,6 +102,7 @@ pub struct AppState {
     pub pending_home_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_explore_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_search_results: Arc<Mutex<Option<SearchResultPayload>>>,
+    pub pending_suggestions: Arc<Mutex<Option<Vec<String>>>>,
     pub pending_lyrics: Arc<Mutex<Option<LyricsPayload>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
     pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
@@ -152,6 +155,8 @@ impl AppState {
             search_edit: TextEdit::default(),
             search_results: None,
             is_searching: false,
+            search_suggestions: Vec::new(),
+            last_suggestion_query: String::new(),
             current_playlist: None,
             is_loading_playlist: false,
             nav_history: Vec::new(),
@@ -186,7 +191,7 @@ impl AppState {
             explore_sections: Vec::new(),
             is_loading_explore: true,
             sidebar_playlists: Vec::new(),
-            liked_tracks: Vec::new(),
+            liked_tracks: cfg.liked_tracks.clone(),
             account: if let Some(name) = &cfg.user_name {
                 Some(AccountProfile {
                     name: name.clone(),
@@ -200,6 +205,7 @@ impl AppState {
             pending_home_feed: Arc::new(Mutex::new(None)),
             pending_explore_feed: Arc::new(Mutex::new(None)),
             pending_search_results: Arc::new(Mutex::new(None)),
+            pending_suggestions: Arc::new(Mutex::new(None)),
             pending_lyrics: Arc::new(Mutex::new(None)),
             pending_playlists: Arc::new(Mutex::new(None)),
             pending_playlist_detail: Arc::new(Mutex::new(None)),
@@ -345,6 +351,8 @@ impl AppState {
             return;
         }
         self.search_query = query.clone();
+        self.search_suggestions.clear();
+        self.last_suggestion_query = query.clone();
         self.is_searching = true;
         self.navigate_to(ActiveView::Search);
 
@@ -355,6 +363,31 @@ impl AppState {
         tokio::spawn(async move {
             if let Ok(results) = innertube.search(&query).await {
                 *pending.lock().unwrap() = Some(results);
+                if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                    waker();
+                }
+            }
+        });
+    }
+
+    pub fn update_search_suggestions(&mut self) {
+        let current_text = self.search_edit.text.trim().to_string();
+        if current_text == self.last_suggestion_query {
+            return;
+        }
+        self.last_suggestion_query = current_text.clone();
+        if current_text.is_empty() {
+            self.search_suggestions.clear();
+            return;
+        }
+
+        let innertube = self.innertube.clone();
+        let pending = self.pending_suggestions.clone();
+        let waker_arc = self.waker.clone();
+
+        tokio::spawn(async move {
+            if let Ok(suggestions) = innertube.get_search_suggestions(&current_text).await {
+                *pending.lock().unwrap() = Some(suggestions);
                 if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
                     waker();
                 }
@@ -422,6 +455,21 @@ impl AppState {
             let track = self.queue[self.queue_index].clone();
             self.play_track(track);
         }
+    }
+
+    pub fn is_track_liked(&self, video_id: &str) -> bool {
+        self.liked_tracks.iter().any(|t| t.video_id == video_id)
+    }
+
+    pub fn toggle_like(&mut self, track: TrackItem) {
+        if let Some(pos) = self.liked_tracks.iter().position(|t| t.video_id == track.video_id) {
+            self.liked_tracks.remove(pos);
+        } else {
+            self.liked_tracks.push(track);
+        }
+        let mut cfg = self.config_mgr.get();
+        cfg.liked_tracks = self.liked_tracks.clone();
+        self.config_mgr.save(cfg);
     }
 
     pub fn submit_cookies(&mut self) {

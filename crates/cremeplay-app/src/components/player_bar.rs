@@ -176,14 +176,26 @@ pub fn render(s: &AppState) -> El {
         .child(track_title)
         .child(track_artist);
 
+    let is_liked = s
+        .current_track
+        .as_ref()
+        .map(|track| s.is_track_liked(&track.video_id))
+        .unwrap_or(false);
+
     let like_btn = el()
         .key("btn-like")
         .size(36.0, 36.0)
         .radius(18.0)
         .center()
-        .child(icon(&icons::HEART, 20.0).color(t.muted))
-        .on_press(|_: &mut AppState| {
-            // Like track
+        .fill(if is_liked { t.hover } else { rune::Color::TRANSPARENT })
+        .child(
+            icon(if is_liked { &icons::HEART_FILLED } else { &icons::HEART }, 20.0)
+                .color(if is_liked { t.brand } else { t.muted }),
+        )
+        .on_press(|s: &mut AppState| {
+            if let Some(track) = s.current_track.clone() {
+                s.toggle_like(track);
+            }
         });
 
     let mid = row()
