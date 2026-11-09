@@ -63,6 +63,8 @@ pub enum AgentAction {
     ToggleNowPlaying,
     ToggleSettings,
     ToggleLike,
+    LoadArtist { id: String },
+    LoadPlaylist { id: String },
     PlayTrack { track: TrackItem },
     Theme { name: String },
 }
@@ -425,9 +427,19 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
                 "search" => s.navigate_to(ActiveView::Search),
                 "explore" => s.navigate_to(ActiveView::Explore),
                 "library" => s.navigate_to(ActiveView::Library),
+                "artist" | "artist_detail" => s.navigate_to(ActiveView::ArtistDetail),
+                "playlist" | "playlist_detail" => s.navigate_to(ActiveView::PlaylistDetail),
                 _ => return format!(r#"{{"error":"unknown view: {}"}}"#, name),
             }
             format!(r#"{{"status":"ok","action":"view","active_view":"{}"}}"#, name)
+        }
+        AgentAction::LoadArtist { id } => {
+            s.load_artist(&id);
+            format!(r#"{{"status":"ok","action":"load_artist","id":"{}"}}"#, id)
+        }
+        AgentAction::LoadPlaylist { id } => {
+            s.load_playlist(&id);
+            format!(r#"{{"status":"ok","action":"load_playlist","id":"{}"}}"#, id)
         }
         AgentAction::ToggleDrawer => {
             s.show_queue_drawer = !s.show_queue_drawer;
