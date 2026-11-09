@@ -41,17 +41,15 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 ---
 ## Performance Comparison
 
-| Metric | Pear Desktop (Electron) | Webview Wrappers | **Cremeplay (Tauri v2 + Rust)** |
-| :--- | :--- | :--- | :--- |
-| **RAM (Tray Only / Background)** | ~400 MB – 500 MB | ~180 MB – 250 MB | **~60 MB** |
-| **RAM (Open Window / Active UI)** | ~600 MB – 850 MB+ | ~250 MB – 400 MB | **~150 MB** |
-| **Process Model** | 6–10 loose Electron processes | Loose Edge WebView processes | **100% Bundled in Windows Job Object under parent `Cremeplay`** |
-| **Audio Output (Volume Mixer)** | Scattered / Electron | Unlabeled `msedgewebview2.exe` | **Native `Cremeplay` with App Icon (WASAPI)** |
-| **Installation & Distribution** | Heavy 150 MB+ Electron installer | Loose unsigned folder / wrapper | **Fast Setup Program App Installer (< 15 MB) & Portable Executable** |
-| **Audio Pipeline** | Chromium Web Audio + Video rendering | Chromium Web Audio + Video rendering | **Direct Audio Streaming + Native WASAPI** |
-| **API & Tracking Bloat** | Heavy Google Polymer Web App + trackers | Heavy Google Polymer Web App + trackers | **Direct Rust Innertube JSON API (Zero tracking overhead)** |
-| **Startup Speed** | ~3.5s – 5.0s | ~1.5s – 2.5s | **< 400ms** |
-| **Binary Size** | ~150 MB – 200 MB+ | ~80 MB – 100 MB | **< 20 MB** |
+| Metric | Pear Desktop (Electron) | Webview Wrappers | Cremeplay (Tauri v2) | **Cremeplay (Rune Native GPU)** |
+| :--- | :--- | :--- | :--- | :--- |
+| **RAM (Active Playback)** | ~600 MB - 850 MB+ | ~250 MB - 400 MB | ~140 MB | **~38 MB** |
+| **UI Engine** | Chromium Web Browser | WebView2 / Edge | WebView2 | **100% Native Rust GPU (`wgpu` + `taffy`)** |
+| **Chromium Processes** | 6-10 loose processes | Multiple Edge processes | Managed WebView2 | **ZERO (Zero Chromium, Zero WebView2)** |
+| **Audio Output** | Chromium Web Audio | Edge audio | Native WASAPI | **Direct WASAPI (Rodio 0.22 + Symphonia)** |
+| **Launch Latency** | ~3.5s - 5.0s | ~1.5s - 2.5s | < 400ms | **< 30ms** |
+| **Agent / Automation API** | None | DevTools only | IPC only | **Embedded Fast-Path HTTP API (`:9099`)** |
+| **Binary Distribution** | Heavy 150 MB+ installer | Unsigned folder | Fast Setup Installer | **37.8 MB Standalone Portable Exe** |
 
 ---
 
