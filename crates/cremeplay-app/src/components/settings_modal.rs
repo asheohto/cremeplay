@@ -125,6 +125,49 @@ pub fn render(s: &AppState) -> El {
                     .on_press(on_toggle)
             };
 
+            let audio_dev_header = text("Audio Output Device").font(typo::LABEL).color(t.heading);
+            let current_device = s.player.get_output_device();
+            let mut dev_list = col().w_full().gap(6.0);
+
+            let is_default = current_device.is_none();
+            let default_btn = row()
+                .key("audio-dev-default")
+                .w_full()
+                .h(36.0)
+                .radius(8.0)
+                .px(12.0)
+                .justify_between()
+                .center_y()
+                .fill(if is_default { t.band } else { t.hover })
+                .border(1.0, if is_default { t.brand } else { rune::Color::TRANSPARENT })
+                .child(text("Default System Device").font(typo::BODY).color(if is_default { t.brand_text } else { t.heading }))
+                .child(if is_default { text("Active").font(typo::CAPTION).color(t.brand) } else { text("").font(typo::CAPTION) })
+                .on_press(|s: &mut AppState| {
+                    s.set_audio_output_device(None);
+                });
+            dev_list = dev_list.child(default_btn);
+
+            for dev in &s.audio_devices {
+                let dev_name = dev.clone();
+                let is_selected = current_device.as_deref() == Some(&dev_name);
+                let btn = row()
+                    .key(format!("audio-dev-{}", dev_name))
+                    .w_full()
+                    .h(36.0)
+                    .radius(8.0)
+                    .px(12.0)
+                    .justify_between()
+                    .center_y()
+                    .fill(if is_selected { t.band } else { t.hover })
+                    .border(1.0, if is_selected { t.brand } else { rune::Color::TRANSPARENT })
+                    .child(text(&dev_name).font(typo::BODY).color(if is_selected { t.brand_text } else { t.heading }))
+                    .child(if is_selected { text("Active").font(typo::CAPTION).color(t.brand) } else { text("").font(typo::CAPTION) })
+                    .on_press(move |s: &mut AppState| {
+                        s.set_audio_output_device(Some(dev_name.clone()));
+                    });
+                dev_list = dev_list.child(btn);
+            }
+
             let cfg = s.config_mgr.get();
             col()
                 .w_full()
@@ -147,6 +190,9 @@ pub fn render(s: &AppState) -> El {
                     cfg.close_to_tray = !cfg.close_to_tray;
                     s.config_mgr.save(cfg);
                 }))
+                .child(divider())
+                .child(audio_dev_header)
+                .child(dev_list)
         }
         SettingsTab::Account => {
             if let Some(acc) = &s.account {

@@ -147,6 +147,9 @@ pub struct AppState {
     pub sleep_timer_end_of_track: bool,
     pub show_sleep_timer_menu: bool,
 
+    // Audio Output Devices
+    pub audio_devices: Vec<String>,
+
     // Core Managers
     pub player: Arc<AudioPlayer>,
     pub innertube: Arc<InnertubeClient>,
@@ -173,6 +176,10 @@ impl AppState {
         let pending_segments = Arc::new(Mutex::new(None));
 
         player.set_volume(cfg.volume);
+        if let Some(dev) = &cfg.audio_output_device {
+            player.set_output_device(Some(dev.clone()));
+        }
+        let audio_devices = AudioPlayer::list_output_devices();
 
         Self {
             active_view: ActiveView::Home,
@@ -259,6 +266,8 @@ impl AppState {
             sleep_timer_end_of_track: false,
             show_sleep_timer_menu: false,
 
+            audio_devices,
+
             player,
             innertube,
             lrclib,
@@ -332,6 +341,13 @@ impl AppState {
             self.sleep_timer_end = None;
         }
         self.show_sleep_timer_menu = false;
+    }
+
+    pub fn set_audio_output_device(&mut self, device: Option<String>) {
+        self.player.set_output_device(device.clone());
+        let mut cfg = self.config_mgr.get();
+        cfg.audio_output_device = device;
+        self.config_mgr.save(cfg);
     }
 
     pub fn load_artist(&mut self, browse_id: &str) {

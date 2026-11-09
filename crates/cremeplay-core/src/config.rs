@@ -33,6 +33,7 @@ pub struct AppConfig {
     pub lyrics_source: String,
     #[serde(default = "default_theme")]
     pub theme: String,
+    pub audio_output_device: Option<String>,
     pub auth_cookies: Option<String>,
     pub user_name: Option<String>,
     pub user_avatar: Option<String>,
@@ -101,6 +102,7 @@ impl Default for AppConfig {
             lyrics_offset_ms: 0,
             lyrics_source: "auto".to_string(),
             theme: "dark".to_string(),
+            audio_output_device: None,
             auth_cookies: None,
             user_name: None,
             user_avatar: None,

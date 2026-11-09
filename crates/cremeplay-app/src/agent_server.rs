@@ -51,6 +51,8 @@ pub struct AppStatusDto {
     pub sleep_timer_active: bool,
     pub sleep_timer_remaining_sec: Option<u64>,
     pub show_sleep_timer_menu: bool,
+    pub audio_output_device: Option<String>,
+    pub audio_devices: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -73,6 +75,7 @@ pub enum AgentAction {
     ToggleLike,
     ToggleSleepTimerMenu,
     SleepTimer { mins: Option<u32>, end_of_track: Option<bool> },
+    SetAudioOutputDevice { device: Option<String> },
     LoadArtist { id: String },
     LoadPlaylist { id: String },
     PlayTrack { track: TrackItem },
@@ -271,6 +274,8 @@ async fn handle_request(
                         if t > now { Some((t - now).as_secs()) } else { Some(0) }
                     }),
                     show_sleep_timer_menu: s.show_sleep_timer_menu,
+                    audio_output_device: s.player.get_output_device(),
+                    audio_devices: s.audio_devices.clone(),
                 };
                 let _ = tx.send(dto);
             });
@@ -524,6 +529,10 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
             let eot = end_of_track.unwrap_or(false);
             s.set_sleep_timer(mins, eot);
             format!(r#"{{"status":"ok","action":"sleep_timer","mins":{:?},"end_of_track":{}}}"#, mins, eot)
+        }
+        AgentAction::SetAudioOutputDevice { device } => {
+            s.set_audio_output_device(device.clone());
+            format!(r#"{{"status":"ok","action":"set_audio_output_device","device":{:?}}}"#, device)
         }
     }
 }

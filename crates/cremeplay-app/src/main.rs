@@ -369,6 +369,8 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
             if t > now { Some((t - now).as_secs()) } else { Some(0) }
         }),
         show_sleep_timer_menu: s.show_sleep_timer_menu,
+        audio_output_device: s.player.get_output_device(),
+        audio_devices: s.audio_devices.clone(),
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

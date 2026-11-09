@@ -36,9 +36,28 @@ pub struct AudioPlayer {
     volume: Arc<Mutex<f32>>,
     segments: Arc<Mutex<Vec<SponsorSegment>>>,
     sponsorblock: Arc<SponsorBlockClient>,
+    selected_device_name: Arc<Mutex<Option<String>>>,
 }
 
 impl AudioPlayer {
+    pub fn list_output_devices() -> Vec<String> {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        let host = rodio::cpal::default_host();
+        match host.output_devices() {
+            Ok(devices) => devices.filter_map(|d| d.description().ok().map(|desc| desc.name().to_string())).collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    pub fn set_output_device(&self, device_name: Option<String>) {
+        *self.selected_device_name.lock().unwrap() = device_name;
+        *self.device_sink.lock().unwrap() = None;
+    }
+
+    pub fn get_output_device(&self) -> Option<String> {
+        self.selected_device_name.lock().unwrap().clone()
+    }
+
     pub fn new() -> Self {
         Self {
             player: Arc::new(Mutex::new(None)),
@@ -51,6 +70,7 @@ impl AudioPlayer {
             volume: Arc::new(Mutex::new(1.0)),
             segments: Arc::new(Mutex::new(Vec::new())),
             sponsorblock: Arc::new(SponsorBlockClient::new()),
+            selected_device_name: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -115,7 +135,23 @@ impl AudioPlayer {
 
         let mut sink_guard = self.device_sink.lock().unwrap();
         if sink_guard.is_none() {
-            match DeviceSinkBuilder::open_default_sink() {
+            use rodio::cpal::traits::{DeviceTrait, HostTrait};
+            let selected_name = self.selected_device_name.lock().unwrap().clone();
+            let opened_sink = if let Some(target_name) = selected_name {
+                let host = rodio::cpal::default_host();
+                let found_device = host.output_devices().ok().and_then(|mut devs| {
+                    devs.find(|d| d.description().ok().map(|desc| desc.name().to_string()) == Some(target_name.clone()))
+                });
+                if let Some(dev) = found_device {
+                    DeviceSinkBuilder::from_device(dev).and_then(|b| b.open_stream())
+                } else {
+                    DeviceSinkBuilder::open_default_sink()
+                }
+            } else {
+                DeviceSinkBuilder::open_default_sink()
+            };
+
+            match opened_sink {
                 Ok(s) => *sink_guard = Some(s),
                 Err(e) => return Err(format!("No audio output device available: {:?}", e)),
             }
