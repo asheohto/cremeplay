@@ -112,6 +112,52 @@ pub fn render(s: &AppState) -> El {
                     }
                 });
 
+            let np_visualizer = if s.is_playing {
+                let t_sec = s.current_time;
+                let b1 = 6.0 + 14.0 * ((t_sec * 6.0).sin().abs() as f32);
+                let b2 = 8.0 + 18.0 * ((t_sec * 9.0 + 0.9).sin().abs() as f32);
+                let b3 = 10.0 + 22.0 * ((t_sec * 12.0 + 1.8).sin().abs() as f32);
+                let b4 = 12.0 + 24.0 * ((t_sec * 15.0 + 2.7).sin().abs() as f32);
+                let b5 = 10.0 + 22.0 * ((t_sec * 11.0 + 3.6).sin().abs() as f32);
+                let b6 = 8.0 + 18.0 * ((t_sec * 8.0 + 4.5).sin().abs() as f32);
+                let b7 = 6.0 + 14.0 * ((t_sec * 5.0 + 5.4).sin().abs() as f32);
+                row()
+                    .gap(4.0)
+                    .center_y()
+                    .h(38.0)
+                    .px(12.0)
+                    .radius(19.0)
+                    .fill(t.hover)
+                    .child(el().w(3.0).h(b1).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b2).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b3).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b4).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b5).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b6).radius(1.5).fill(t.brand))
+                    .child(el().w(3.0).h(b7).radius(1.5).fill(t.brand))
+            } else {
+                row()
+                    .gap(4.0)
+                    .center_y()
+                    .h(38.0)
+                    .px(12.0)
+                    .radius(19.0)
+                    .fill(t.hover)
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+                    .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
+            };
+
+            let actions_row = row()
+                .gap(12.0)
+                .center_y()
+                .child(np_like_btn)
+                .child(np_visualizer);
+
             col()
                 .center()
                 .gap(24.0)
@@ -123,7 +169,7 @@ pub fn render(s: &AppState) -> El {
                         .child(text(title_str).font(typo::HERO).color(t.heading))
                         .child(text(artist_str).font(typo::SUBTITLE).color(t.muted)),
                 )
-                .child(np_like_btn)
+                .child(actions_row)
         }
         NowPlayingTab::Queue => {
             let mut queue_list = col().w(640.0).gap(8.0).py(20.0);

@@ -162,6 +162,37 @@ pub fn render(s: &AppState) -> El {
     .font(typo::TITLE)
     .color(t.heading);
 
+    let eq_badge = if s.is_playing {
+        let t_sec = s.current_time;
+        let b1 = 4.0 + 8.0 * ((t_sec * 8.0).sin().abs() as f32);
+        let b2 = 6.0 + 10.0 * ((t_sec * 12.0 + 1.2).sin().abs() as f32);
+        let b3 = 3.0 + 12.0 * ((t_sec * 10.0 + 2.5).sin().abs() as f32);
+        let b4 = 5.0 + 9.0 * ((t_sec * 14.0 + 0.8).sin().abs() as f32);
+        row()
+            .gap(2.5)
+            .center_y()
+            .h(16.0)
+            .child(el().w(2.5).h(b1).radius(1.25).fill(t.brand))
+            .child(el().w(2.5).h(b2).radius(1.25).fill(t.brand))
+            .child(el().w(2.5).h(b3).radius(1.25).fill(t.brand))
+            .child(el().w(2.5).h(b4).radius(1.25).fill(t.brand))
+    } else {
+        row()
+            .gap(2.5)
+            .center_y()
+            .h(16.0)
+            .child(el().w(2.5).h(3.0).radius(1.25).fill(t.muted))
+            .child(el().w(2.5).h(3.0).radius(1.25).fill(t.muted))
+            .child(el().w(2.5).h(3.0).radius(1.25).fill(t.muted))
+            .child(el().w(2.5).h(3.0).radius(1.25).fill(t.muted))
+    };
+
+    let title_row = row()
+        .center_y()
+        .gap(8.0)
+        .child(track_title)
+        .child(eq_badge);
+
     let track_artist = text(
         s.current_track
             .as_ref()
@@ -173,7 +204,7 @@ pub fn render(s: &AppState) -> El {
 
     let meta = col()
         .gap(2.0)
-        .child(track_title)
+        .child(title_row)
         .child(track_artist);
 
     let is_liked = s
