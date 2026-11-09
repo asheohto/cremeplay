@@ -168,23 +168,62 @@ pub fn render(s: &AppState) -> El {
         let total_sec = track.duration as u64;
         let dur_str = format!("{}:{:02}", total_sec / 60, total_sec % 60);
 
-        let remove_btn = if is_custom {
+        let (move_up_btn, move_down_btn, remove_btn) = if is_custom {
             let pl_id = pl.browse_id.clone();
             let vid = track.video_id.clone();
-            Some(
+            let pl_id_up = pl.browse_id.clone();
+            let pl_id_down = pl.browse_id.clone();
+
+            let up = if idx > 0 {
+                Some(
+                    el()
+                        .key(format!("btn-up-track-{}", idx))
+                        .size(24.0, 24.0)
+                        .radius(12.0)
+                        .center()
+                        .fill(t.hover)
+                        .child(icon(&icons::CHEVRON_UP, 14.0).color(t.muted))
+                        .on_press(move |s: &mut AppState| {
+                            s.reorder_custom_playlist_track(&pl_id_up, idx, idx - 1);
+                        }),
+                )
+            } else {
+                None
+            };
+
+            let down = if idx + 1 < pl.tracks.len() {
+                Some(
+                    el()
+                        .key(format!("btn-down-track-{}", idx))
+                        .size(24.0, 24.0)
+                        .radius(12.0)
+                        .center()
+                        .fill(t.hover)
+                        .child(icon(&icons::CHEVRON_DOWN, 14.0).color(t.muted))
+                        .on_press(move |s: &mut AppState| {
+                            s.reorder_custom_playlist_track(&pl_id_down, idx, idx + 1);
+                        }),
+                )
+            } else {
+                None
+            };
+
+            let rem = Some(
                 el()
                     .key(format!("btn-rem-track-{}", idx))
-                    .size(28.0, 28.0)
-                    .radius(14.0)
+                    .size(24.0, 24.0)
+                    .radius(12.0)
                     .center()
                     .fill(t.hover)
                     .child(icon(&icons::CLOSE, 12.0).color(t.muted))
                     .on_press(move |s: &mut AppState| {
                         s.remove_track_from_custom_playlist(&pl_id, &vid);
                     }),
-            )
+            );
+
+            (up, down, rem)
         } else {
-            None
+            (None, None, None)
         };
 
         let track_add_clone = track.clone();
@@ -202,10 +241,16 @@ pub fn render(s: &AppState) -> El {
 
         let mut right_side = row()
             .center_y()
-            .gap(10.0)
+            .gap(8.0)
             .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
             .child(add_btn);
 
+        if let Some(btn) = move_up_btn {
+            right_side = right_side.child(btn);
+        }
+        if let Some(btn) = move_down_btn {
+            right_side = right_side.child(btn);
+        }
         if let Some(btn) = remove_btn {
             right_side = right_side.child(btn);
         }

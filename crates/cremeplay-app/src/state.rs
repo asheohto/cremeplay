@@ -438,6 +438,11 @@ impl AppState {
                 && let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id) {
                     current.tracks = pl.tracks.clone();
                     current.track_count = current.tracks.len();
+                    if current.artwork_url.is_empty() {
+                        if let Some(first) = current.tracks.first() {
+                            current.artwork_url = first.artwork_url.clone();
+                        }
+                    }
                 }
     }
 
@@ -452,6 +457,32 @@ impl AppState {
             && current.browse_id == id {
                 current.tracks.retain(|t| t.video_id != video_id);
                 current.track_count = current.tracks.len();
+                if let Some(first) = current.tracks.first() {
+                    current.artwork_url = first.artwork_url.clone();
+                } else {
+                    current.artwork_url.clear();
+                }
+            }
+    }
+
+    pub fn reorder_custom_playlist_track(&mut self, id: &str, from_idx: usize, to_idx: usize) {
+        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id)
+            && from_idx < pl.tracks.len() && to_idx < pl.tracks.len() {
+                let track = pl.tracks.remove(from_idx);
+                pl.tracks.insert(to_idx, track);
+                let mut cfg = self.config_mgr.get();
+                cfg.custom_playlists = self.custom_playlists.clone();
+                self.config_mgr.save(cfg);
+            }
+        if let Some(current) = &mut self.current_playlist
+            && current.browse_id == id
+            && from_idx < current.tracks.len()
+            && to_idx < current.tracks.len() {
+                let track = current.tracks.remove(from_idx);
+                current.tracks.insert(to_idx, track);
+                if let Some(first) = current.tracks.first() {
+                    current.artwork_url = first.artwork_url.clone();
+                }
             }
     }
 

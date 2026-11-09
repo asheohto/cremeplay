@@ -138,6 +138,12 @@ pub static CHEVRON_DOWN: Icon = Icon {
     body: r#"<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>"#,
 };
 
+pub static CHEVRON_UP: Icon = Icon {
+    name: "cp-chevron-up",
+    view: 24.0,
+    body: r#"<polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>"#,
+};
+
 pub static CLOCK: Icon = Icon {
     name: "cp-clock",
     view: 24.0,
