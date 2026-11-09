@@ -317,11 +317,10 @@ impl AppState {
 
     pub fn set_theme(&mut self, theme_id: &str) {
         let mut t = Theme::get(theme_id);
-        if theme_id == "adaptive" {
-            if let Some(dom) = self.dominant_color {
+        if theme_id == "adaptive"
+            && let Some(dom) = self.dominant_color {
                 t = t.with_tint(dom);
             }
-        }
         self.theme = t;
         let mut cfg = self.config_mgr.get();
         cfg.theme = theme_id.to_string();
@@ -402,12 +401,11 @@ impl AppState {
         let mut cfg = self.config_mgr.get();
         cfg.custom_playlists = self.custom_playlists.clone();
         self.config_mgr.save(cfg);
-        if let Some(current) = &self.current_playlist {
-            if current.browse_id == id {
+        if let Some(current) = &self.current_playlist
+            && current.browse_id == id {
                 self.current_playlist = None;
                 self.navigate_to(ActiveView::Library);
             }
-        }
     }
 
     pub fn rename_custom_playlist(&mut self, id: &str, new_title: String) {
@@ -421,30 +419,26 @@ impl AppState {
             cfg.custom_playlists = self.custom_playlists.clone();
             self.config_mgr.save(cfg);
         }
-        if let Some(current) = &mut self.current_playlist {
-            if current.browse_id == id {
+        if let Some(current) = &mut self.current_playlist
+            && current.browse_id == id {
                 current.title = trimmed.to_string();
             }
-        }
     }
 
     pub fn add_track_to_custom_playlist(&mut self, id: &str, track: TrackItem) {
-        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id) {
-            if !pl.tracks.iter().any(|t| t.video_id == track.video_id) {
+        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id)
+            && !pl.tracks.iter().any(|t| t.video_id == track.video_id) {
                 pl.tracks.push(track);
                 let mut cfg = self.config_mgr.get();
                 cfg.custom_playlists = self.custom_playlists.clone();
                 self.config_mgr.save(cfg);
             }
-        }
-        if let Some(current) = &mut self.current_playlist {
-            if current.browse_id == id {
-                if let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id) {
+        if let Some(current) = &mut self.current_playlist
+            && current.browse_id == id
+                && let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id) {
                     current.tracks = pl.tracks.clone();
                     current.track_count = current.tracks.len();
                 }
-            }
-        }
     }
 
     pub fn remove_track_from_custom_playlist(&mut self, id: &str, video_id: &str) {
@@ -454,12 +448,11 @@ impl AppState {
             cfg.custom_playlists = self.custom_playlists.clone();
             self.config_mgr.save(cfg);
         }
-        if let Some(current) = &mut self.current_playlist {
-            if current.browse_id == id {
+        if let Some(current) = &mut self.current_playlist
+            && current.browse_id == id {
                 current.tracks.retain(|t| t.video_id != video_id);
                 current.track_count = current.tracks.len();
             }
-        }
     }
 
     pub fn open_custom_playlist(&mut self, id: &str) {
@@ -561,16 +554,14 @@ impl AppState {
             let pending_dom = self.pending_dominant.clone();
             let waker_dom = self.waker.clone();
             tokio::spawn(async move {
-                if let Ok(resp) = reqwest::get(&artwork_url).await {
-                    if let Ok(bytes) = resp.bytes().await {
-                        if let Some(color) = extract_dominant_color(&bytes) {
+                if let Ok(resp) = reqwest::get(&artwork_url).await
+                    && let Ok(bytes) = resp.bytes().await
+                        && let Some(color) = extract_dominant_color(&bytes) {
                             *pending_dom.lock().unwrap() = Some(color);
                             if let Some(waker) = waker_dom.lock().unwrap().as_ref() {
                                 waker();
                             }
                         }
-                    }
-                }
             });
         }
 
@@ -877,8 +868,8 @@ impl AppState {
             let waker_arc = self.waker.clone();
 
             tokio::spawn(async move {
-                if let Ok(resp) = reqwest::get(&url_owned).await {
-                    if let Ok(bytes) = resp.bytes().await {
+                if let Ok(resp) = reqwest::get(&url_owned).await
+                    && let Ok(bytes) = resp.bytes().await {
                         let cache_opt = cache_lock.lock().unwrap();
                         if let Some(cache) = cache_opt.as_ref() {
                             let img = cache.load(bytes.to_vec());
@@ -888,7 +879,6 @@ impl AppState {
                             }
                         }
                     }
-                }
             });
         }
         None
@@ -901,14 +891,13 @@ impl AppState {
         let vid = video_id.to_string();
 
         tokio::spawn(async move {
-            if let Ok(tracks) = innertube.get_radio_queue(&vid).await {
-                if !tracks.is_empty() {
+            if let Ok(tracks) = innertube.get_radio_queue(&vid).await
+                && !tracks.is_empty() {
                     *pending.lock().unwrap() = Some(tracks);
                     if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
                         waker();
                     }
                 }
-            }
         });
     }
 
@@ -938,11 +927,10 @@ impl AppState {
             self.queue_index = 0;
             let track = self.queue[0].clone();
             self.play_track(track);
-        } else if self.config_mgr.get().autoplay {
-            if let Some(cur) = self.current_track.clone() {
+        } else if self.config_mgr.get().autoplay
+            && let Some(cur) = self.current_track.clone() {
                 self.fetch_radio_recommendations(&cur.video_id);
             }
-        }
     }
 
     pub fn play_prev(&mut self) {
@@ -993,8 +981,8 @@ impl AppState {
         }
 
         // Handle JSON cookie array from browser extensions (e.g., EditThisCookie, Cookie-Editor)
-        if cookies_clean.starts_with('[') && cookies_clean.ends_with(']') {
-            if let Ok(json_arr) = serde_json::from_str::<Vec<serde_json::Value>>(&cookies_clean) {
+        if cookies_clean.starts_with('[') && cookies_clean.ends_with(']')
+            && let Ok(json_arr) = serde_json::from_str::<Vec<serde_json::Value>>(&cookies_clean) {
                 let parts: Vec<String> = json_arr
                     .iter()
                     .filter_map(|c| {
@@ -1007,7 +995,6 @@ impl AppState {
                     cookies_clean = parts.join("; ");
                 }
             }
-        }
 
         // If user pasted just a raw token without '=', treat as SAPISID
         if !cookies_clean.contains('=') {

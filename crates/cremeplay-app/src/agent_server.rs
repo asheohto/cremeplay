@@ -142,11 +142,10 @@ pub fn start(handle: AppHandle<AppState>) {
                             if let Some(hend) = header_end {
                                 let headers_str = String::from_utf8_lossy(&req_bytes[..hend]);
                                 for line in headers_str.lines() {
-                                    if let Some((k, v)) = line.split_once(':') {
-                                        if k.trim().eq_ignore_ascii_case("content-length") {
+                                    if let Some((k, v)) = line.split_once(':')
+                                        && k.trim().eq_ignore_ascii_case("content-length") {
                                             content_length = v.trim().parse::<usize>().ok();
                                         }
-                                    }
                                 }
                             }
                         }
@@ -278,9 +277,9 @@ async fn handle_request(
                     is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
                     latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
                     sleep_timer_active: s.sleep_timer_end.is_some() || s.sleep_timer_end_of_track,
-                    sleep_timer_remaining_sec: s.sleep_timer_end.and_then(|t| {
+                    sleep_timer_remaining_sec: s.sleep_timer_end.map(|t| {
                         let now = std::time::Instant::now();
-                        if t > now { Some((t - now).as_secs()) } else { Some(0) }
+                        if t > now { (t - now).as_secs() } else { 0 }
                     }),
                     show_sleep_timer_menu: s.show_sleep_timer_menu,
                     audio_output_device: s.player.get_output_device(),

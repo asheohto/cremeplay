@@ -234,13 +234,12 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
                 added = true;
             }
         }
-        if added && s.is_playing && s.queue_index + 1 < s.queue.len() {
-            if s.current_time >= s.duration - 0.5 {
+        if added && s.is_playing && s.queue_index + 1 < s.queue.len()
+            && s.current_time >= s.duration - 0.5 {
                 s.queue_index += 1;
                 let next_track = s.queue[s.queue_index].clone();
                 s.play_track(next_track);
             }
-        }
         state_changed = true;
     }
 
@@ -276,8 +275,8 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
     }
 
     // Pre-resolve upcoming track audio stream (Gapless buffering)
-    if s.is_playing && s.duration > 0.0 && s.current_time >= (s.duration - 15.0).max(0.0) {
-        if s.queue_index + 1 < s.queue.len() {
+    if s.is_playing && s.duration > 0.0 && s.current_time >= (s.duration - 15.0).max(0.0)
+        && s.queue_index + 1 < s.queue.len() {
             let next_video_id = s.queue[s.queue_index + 1].video_id.clone();
             let mut last_pref = s.last_prefetched_id.lock().unwrap();
             if last_pref.as_deref() != Some(&next_video_id) {
@@ -289,11 +288,10 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
                 });
             }
         }
-    }
 
     // Sleep timer expiration
-    if let Some(target) = s.sleep_timer_end {
-        if std::time::Instant::now() >= target {
+    if let Some(target) = s.sleep_timer_end
+        && std::time::Instant::now() >= target {
             log::info!("[Sleep Timer] Timer expired, pausing playback");
             s.sleep_timer_end = None;
             s.sleep_timer_duration_mins = None;
@@ -301,7 +299,6 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
             s.player.pause();
             state_changed = true;
         }
-    }
 
     // Auto-advance track on finish
     if s.is_playing && s.duration > 0.0 && s.current_time >= s.duration - 0.5 {
@@ -372,9 +369,9 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
         latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
         sleep_timer_active: s.sleep_timer_end.is_some() || s.sleep_timer_end_of_track,
-        sleep_timer_remaining_sec: s.sleep_timer_end.and_then(|t| {
+        sleep_timer_remaining_sec: s.sleep_timer_end.map(|t| {
             let now = std::time::Instant::now();
-            if t > now { Some((t - now).as_secs()) } else { Some(0) }
+            if t > now { (t - now).as_secs() } else { 0 }
         }),
         show_sleep_timer_menu: s.show_sleep_timer_menu,
         audio_output_device: s.player.get_output_device(),
