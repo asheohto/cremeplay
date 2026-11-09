@@ -387,6 +387,14 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
                         return true;
                     }
                 }
+                "f" | "F" => {
+                    s.show_now_playing = !s.show_now_playing;
+                    return true;
+                }
+                "/" => {
+                    s.navigate_to(crate::state::ActiveView::Search);
+                    return true;
+                }
                 _ => {}
             }
         }

@@ -45,6 +45,7 @@ pub enum SettingsTab {
     Account,
     Lyrics,
     Integrations,
+    Shortcuts,
     About,
 }
 

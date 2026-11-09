@@ -53,6 +53,7 @@ pub fn render(s: &AppState) -> El {
         .child(tab_item("Account", SettingsTab::Account, s.settings_tab))
         .child(tab_item("Lyrics", SettingsTab::Lyrics, s.settings_tab))
         .child(tab_item("Integrations", SettingsTab::Integrations, s.settings_tab))
+        .child(tab_item("Shortcuts", SettingsTab::Shortcuts, s.settings_tab))
         .child(tab_item("About", SettingsTab::About, s.settings_tab));
 
     let divider = || el().w_full().h(1.0).fill(t.border);
@@ -500,6 +501,43 @@ pub fn render(s: &AppState) -> El {
                     cfg.tuna_obs = !cfg.tuna_obs;
                     s.config_mgr.save(cfg);
                 }))
+        }
+        SettingsTab::Shortcuts => {
+            let shortcut_item = |key_badge: &str, desc: &str| {
+                row()
+                    .w_full()
+                    .h(28.0)
+                    .justify_between()
+                    .center_y()
+                    .child(text(desc).font(typo::BODY).color(t.heading))
+                    .child(
+                        el()
+                            .h(22.0)
+                            .px(8.0)
+                            .radius(4.0)
+                            .fill(t.hover)
+                            .border(1.0, t.border)
+                            .center()
+                            .child(text(key_badge).font(typo::CAPTION).color(t.brand_text)),
+                    )
+            };
+
+            col()
+                .w_full()
+                .gap(6.0)
+                .child(text("Playback & Navigation Shortcuts").font(typo::LABEL).color(t.muted))
+                .child(shortcut_item("Space", "Play / Pause"))
+                .child(shortcut_item("N / P", "Next / Previous Track"))
+                .child(shortcut_item("F", "Toggle Fullscreen Now Playing"))
+                .child(shortcut_item("Q", "Toggle Queue & Lyrics Drawer"))
+                .child(shortcut_item("M", "Mute / Unmute Audio"))
+                .child(shortcut_item("L", "Like / Unlike Current Track"))
+                .child(shortcut_item("S / R", "Shuffle / Cycle Repeat Mode"))
+                .child(shortcut_item("← / →", "Seek Backward / Forward 5s"))
+                .child(shortcut_item("↑ / ↓", "Volume Up / Down 5%"))
+                .child(shortcut_item("/", "Quick Search Navigation"))
+                .child(shortcut_item("Ctrl + ,", "Open Settings"))
+                .child(shortcut_item("Esc", "Close Modals & Drawers"))
         }
         SettingsTab::About => {
             let cfg = s.config_mgr.get();
