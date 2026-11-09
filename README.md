@@ -43,29 +43,36 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 
 | Metric | Pear Desktop (Electron) | Webview Wrappers | Cremeplay (Tauri v2) | **Cremeplay (Rune Native GPU)** |
 | :--- | :--- | :--- | :--- | :--- |
-| **RAM (Active Playback)** | ~600 MB - 850 MB+ | ~250 MB - 400 MB | ~140 MB | **~38 MB** |
+| **RAM (Active Playback)** | ~600 MB - 850 MB+ | ~250 MB - 400 MB | ~140 MB | **~30 MB (Idle: ~7.8 MB)** |
 | **UI Engine** | Chromium Web Browser | WebView2 / Edge | WebView2 | **100% Native Rust GPU (`wgpu` + `taffy`)** |
 | **Chromium Processes** | 6-10 loose processes | Multiple Edge processes | Managed WebView2 | **ZERO (Zero Chromium, Zero WebView2)** |
 | **Audio Output** | Chromium Web Audio | Edge audio | Native WASAPI | **Direct WASAPI (Rodio 0.22 + Symphonia)** |
 | **Launch Latency** | ~3.5s - 5.0s | ~1.5s - 2.5s | < 400ms | **< 30ms** |
 | **Agent / Automation API** | None | DevTools only | IPC only | **Embedded Fast-Path HTTP API (`:9099`)** |
-| **Binary Distribution** | Heavy 150 MB+ installer | Unsigned folder | Fast Setup Installer | **37.8 MB Standalone Portable Exe** |
+| **Binary Distribution** | Heavy 150 MB+ installer | Unsigned folder | Fast Setup Installer | **38.2 MB Standalone Portable Exe** |
 
 ---
 
 ## Features
 
-- **Extreme Low Memory Profile**: Consumes only **~60 MB RAM on tray** and **~150 MB RAM with open window**, backed by proactive working set trimming.
-- **Single-Process Hierarchy**: All WebView2 child and rendering processes are bundled into a Windows Job Object directly under the parent `Cremeplay` process — zero orphan processes left behind on exit.
+- **Rune Native GPU Engine (Webviewless)**: Built with Rune (`wgpu`, `taffy`, `parley`) delivering 60 FPS GPU-accelerated rendering with **zero Chromium and zero WebView2** overhead (**~7.8 MB idle / ~30 MB active playback**).
+- **Concurrent Multi-Source Lyrics Subsystem**:
+  - Automatically queries **Better-Lyrics (TTML word/line-by-line sync)**, **LRCLIB**, **YouTube Captions**, and **Genius** simultaneously.
+  - Interactive source-switching pills (`[Better-Lyrics]`, `[LRCLIB]`, `[YouTube Captions]`, `[Custom]`).
+  - Real-time lyrics delay offset controls (`-0.2s` / `+0.2s`) with persistent per-track recall.
+  - Custom `.lrc` lyrics editor and file loader with instant sync.
+- **Extreme Low Memory Profile**: Consumes only **~30 MB RAM** on the native Rune engine, and **~60 MB tray / ~150 MB window** on the Tauri v2 engine.
+- **Embedded Agent & Test Server (`:9099`)**: High-performance JSON RPC HTTP server allowing headless automation, real-time status inspection, and safe UI-thread state mutations.
+- **Automatic Background Update Checks**: Checks GitHub releases on launch with sleek dismissable header prompts and in-settings manual checking.
+- **Full Album & Artist Discography Support**: Seamlessly browse, inspect, and play complete album tracklists and artist catalogs.
+- **Single-Process Hierarchy**: Bundled into a Windows Job Object directly under the parent `Cremeplay` process — zero orphan processes left behind on exit.
 - **Native Audio Output Identity**: Media streams are labeled as **Cremeplay** with the official app icon in Windows Volume Mixer and Audio Settings (instead of generic `msedgewebview2.exe`).
-- **Fast Program App Installer & Portable Exe**: Available both as a fast single-click setup installer that registers Cremeplay as a native Windows Program App (Start Menu shortcut and AppUserModelID integration) and as a zero-install portable executable.
 - **Native Rust Audio Engine**: Raw audio decoded via Symphonia and streamed straight to Windows WASAPI with zero video decoding overhead.
 - **Authentic YouTube Music Algorithm**: Complete feed exploration including *Listen Again*, *Daily Discover*, *From the Community* user playlists, and *Similar To* artists. Song selections queue smart "Up Next" tracks following YouTube's live music algorithm.
 - **OBS Tuna Integration**: Built-in broadcast server on `http://127.0.0.1:1608/` serving live track metadata and album art for streaming overlays and desktop lyrics tools like [LyricReme](https://github.com/asheohto/lyricreme).
 - **Dynamic Album Art Theme**: Extracts vibrant dominant tones directly from the current album cover art to ambiently tint the interface in real time, alongside handcrafted dark themes.
 - **Native SponsorBlock**: Automatically skips non-music intros, skits, chatter, and video outros before frames are rendered.
 - **Discord Rich Presence**: Displays live song title, artist, album art, elapsed time, and duration directly to your Discord profile.
-- **Playlist & Library Power**: Collage covers for custom playlists without artwork, track shuffling, link copying, search filtering, and Google account login support with secure persistent session cookies.
 - **System Tray & Media Shortcuts**: Full Windows media keys support (Play/Pause, Next, Previous) and unobtrusive minimize-to-tray background playback.
 
 ---
@@ -86,25 +93,31 @@ Cremeplay automatically runs a lightweight Tuna server on `http://127.0.0.1:1608
 
 ## Building from Source
 
-Requires Windows 10/11, [Rust](https://rustup.rs/) (MSVC toolchain), and [Node.js](https://nodejs.org/) (v20+ with pnpm):
+Requires Windows 10/11 and [Rust](https://rustup.rs/) (MSVC toolchain):
 
+### 1. Rune Webviewless Architecture (Recommended, ~30 MB RAM)
 ```powershell
-# Clone the repository
-git clone https://github.com/asheohto/cremeplay.git
-cd cremeplay
+# Run native GPU client
+cargo run -p cremeplay-app --release
 
+# Build standalone portable executable
+cargo build -p cremeplay-app --release
+```
+The compiled standalone executable is output to: `.\target\release\cremeplay.exe`.
+
+### 2. Tauri v2 Desktop Architecture
+Requires [Node.js](https://nodejs.org/) (v20+ with pnpm):
+```powershell
 # Install frontend dependencies
 pnpm install
 
 # Run live-reloading development build
 pnpm dev
 
-# Build standalone production bundle
+# Build production bundle & installer
 pnpm build
 ```
-
-The compiled release binary is output to:
-`.\src-tauri\target\release\cremeplay.exe`
+The compiled Tauri v2 release binary is output to: `.\src-tauri\target\release\cremeplay.exe`.
 
 ---
 
