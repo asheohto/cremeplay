@@ -115,6 +115,7 @@ pub struct AppState {
     pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
     pub pending_artist_detail: Arc<Mutex<Option<ArtistDetail>>>,
     pub pending_account: Arc<Mutex<Option<AccountProfile>>>,
+    pub pending_radio_queue: Arc<Mutex<Option<Vec<TrackItem>>>>,
     pub waker: Arc<Mutex<Option<Waker>>>,
 
     // Image Cache
@@ -233,6 +234,7 @@ impl AppState {
             pending_playlist_detail: Arc::new(Mutex::new(None)),
             pending_artist_detail: Arc::new(Mutex::new(None)),
             pending_account: Arc::new(Mutex::new(None)),
+            pending_radio_queue: Arc::new(Mutex::new(None)),
             waker: Arc::new(Mutex::new(None)),
 
             image_cache: Arc::new(Mutex::new(None)),
@@ -329,6 +331,16 @@ impl AppState {
     }
 
     pub fn play_track(&mut self, track: TrackItem) {
+        if self.queue.is_empty() {
+            self.queue.push(track.clone());
+            self.queue_index = 0;
+        }
+
+        // If autoplay is enabled and queue is small (<= 2 tracks), prefetch radio recommendations
+        if self.config_mgr.get().autoplay && self.queue.len() <= 2 {
+            self.fetch_radio_recommendations(&track.video_id);
+        }
+
         self.current_track = Some(track.clone());
         self.duration = track.duration;
         self.current_time = 0.0;
@@ -684,11 +696,54 @@ impl AppState {
         None
     }
 
+    pub fn fetch_radio_recommendations(&self, video_id: &str) {
+        let innertube = self.innertube.clone();
+        let pending = self.pending_radio_queue.clone();
+        let waker_arc = self.waker.clone();
+        let vid = video_id.to_string();
+
+        tokio::spawn(async move {
+            if let Ok(tracks) = innertube.get_radio_queue(&vid).await {
+                if !tracks.is_empty() {
+                    *pending.lock().unwrap() = Some(tracks);
+                    if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                        waker();
+                    }
+                }
+            }
+        });
+    }
+
     pub fn play_next(&mut self) {
-        if !self.queue.is_empty() && self.queue_index + 1 < self.queue.len() {
+        if self.queue.is_empty() {
+            return;
+        }
+
+        if self.shuffle && self.queue.len() > 1 {
+            use std::time::SystemTime;
+            let seed = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|d| d.subsec_nanos() as usize)
+                .unwrap_or(42);
+            let next_idx = (self.queue_index + 1 + (seed % (self.queue.len() - 1))) % self.queue.len();
+            self.queue_index = next_idx;
+            let track = self.queue[self.queue_index].clone();
+            self.play_track(track);
+            return;
+        }
+
+        if self.queue_index + 1 < self.queue.len() {
             self.queue_index += 1;
             let track = self.queue[self.queue_index].clone();
             self.play_track(track);
+        } else if self.repeat_mode == RepeatMode::All {
+            self.queue_index = 0;
+            let track = self.queue[0].clone();
+            self.play_track(track);
+        } else if self.config_mgr.get().autoplay {
+            if let Some(cur) = self.current_track.clone() {
+                self.fetch_radio_recommendations(&cur.video_id);
+            }
         }
     }
 

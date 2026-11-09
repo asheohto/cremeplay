@@ -215,6 +215,26 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         state_changed = true;
     }
 
+    // Drain async radio queue recommendations (Autoplay)
+    let radio_tracks = s.pending_radio_queue.lock().unwrap().take();
+    if let Some(tracks) = radio_tracks {
+        let mut added = false;
+        for t in tracks {
+            if !s.queue.iter().any(|q| q.video_id == t.video_id) {
+                s.queue.push(t);
+                added = true;
+            }
+        }
+        if added && s.is_playing && s.queue_index + 1 < s.queue.len() {
+            if s.current_time >= s.duration - 0.5 {
+                s.queue_index += 1;
+                let next_track = s.queue[s.queue_index].clone();
+                s.play_track(next_track);
+            }
+        }
+        state_changed = true;
+    }
+
     // Drain update check
     if let Some(opt) = s.pending_update.lock().unwrap().take() {
         s.is_checking_update = false;
