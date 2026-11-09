@@ -4,6 +4,15 @@
 
 use crate::lrclib::LyricsPayload;
 
+include!("hanzi_table.rs");
+
+fn pinyin_lookup(c: char) -> Option<&'static str> {
+    HANZI_TABLE
+        .binary_search_by_key(&c, |&(ch, _)| ch)
+        .ok()
+        .map(|idx| HANZI_TABLE[idx].1)
+}
+
 /// Detects if the string contains non-Latin scripts (Korean, Japanese Kana, Cyrillic, Greek, Hanzi).
 pub fn has_foreign_script(text: &str) -> bool {
     text.chars().any(|c| match c as u32 {
@@ -285,6 +294,20 @@ pub fn romanize_line(line: &str) -> Option<String> {
             continue;
         }
 
+        // 7. Chinese Hanzi (Pinyin)
+        if let Some(pinyin) = pinyin_lookup(c) {
+            if !result.is_empty() && !result.ends_with(' ') {
+                result.push(' ');
+            }
+            result.push_str(pinyin);
+            if i + 1 < len && chars[i + 1] != ' ' {
+                result.push(' ');
+            }
+            modified = true;
+            i += 1;
+            continue;
+        }
+
         // Japanese prolonged sound mark: ー
         if c == 'ー' {
             if let Some(prev) = result.chars().last() {
@@ -352,5 +375,12 @@ mod tests {
     #[test]
     fn test_greek_romanization() {
         assert_eq!(romanize_line("Καλημέρα"), Some("Kalimera".to_string()));
+    }
+
+    #[test]
+    fn test_chinese_pinyin_romanization() {
+        assert_eq!(romanize_line("我爱你"), Some("wo ai ni".to_string()));
+        assert_eq!(romanize_line("明天会更好"), Some("ming tian hui geng hao".to_string()));
+        assert_eq!(romanize_line("我爱你 baby"), Some("wo ai ni baby".to_string()));
     }
 }
