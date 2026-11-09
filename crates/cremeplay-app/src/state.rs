@@ -433,9 +433,38 @@ impl AppState {
     }
 
     pub fn set_cookies(&mut self, cookies: String) {
-        let cookies_clean = cookies.trim().to_string();
+        let mut cookies_clean = cookies.trim().to_string();
         if cookies_clean.is_empty() {
             return;
+        }
+
+        // Strip leading "Cookie:" header if copied verbatim from DevTools
+        if let Some(stripped) = cookies_clean.strip_prefix("Cookie:") {
+            cookies_clean = stripped.trim().to_string();
+        } else if let Some(stripped) = cookies_clean.strip_prefix("cookie:") {
+            cookies_clean = stripped.trim().to_string();
+        }
+
+        // Handle JSON cookie array from browser extensions (e.g., EditThisCookie, Cookie-Editor)
+        if cookies_clean.starts_with('[') && cookies_clean.ends_with(']') {
+            if let Ok(json_arr) = serde_json::from_str::<Vec<serde_json::Value>>(&cookies_clean) {
+                let parts: Vec<String> = json_arr
+                    .iter()
+                    .filter_map(|c| {
+                        let name = c.get("name")?.as_str()?;
+                        let value = c.get("value")?.as_str()?;
+                        Some(format!("{}={}", name, value))
+                    })
+                    .collect();
+                if !parts.is_empty() {
+                    cookies_clean = parts.join("; ");
+                }
+            }
+        }
+
+        // If user pasted just a raw token without '=', treat as SAPISID
+        if !cookies_clean.contains('=') {
+            cookies_clean = format!("SAPISID={}; __Secure-3PAPISID={}", cookies_clean, cookies_clean);
         }
 
         self.innertube.set_cookies(Some(cookies_clean.clone()));

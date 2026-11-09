@@ -231,6 +231,15 @@ pub fn render(s: &AppState) -> El {
                             .child(connect_btn)
                             .child(browser_btn),
                     )
+                    .child(
+                        col()
+                            .gap(4.0)
+                            .pt(6.0)
+                            .child(text("How to connect:").font(typo::LABEL).color(t.heading))
+                            .child(text("1. Open music.youtube.com in your browser & sign in.").font(typo::CAPTION).color(t.muted))
+                            .child(text("2. Copy your Cookie header or SAPISID from DevTools or cookie extension.").font(typo::CAPTION).color(t.muted))
+                            .child(text("3. Paste here and click Connect. Playlists & recommendations sync instantly.").font(typo::CAPTION).color(t.muted)),
+                    )
             }
         }
         SettingsTab::Lyrics => {
