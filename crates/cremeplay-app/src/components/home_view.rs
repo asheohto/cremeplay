@@ -82,6 +82,26 @@ pub fn render(s: &AppState) -> El {
                 .font(typo::CAPTION)
                 .color(t.body);
 
+            let track_add_clone = item.clone();
+            let add_btn = el()
+                .key(format!("home-add-card-{}-{}", s_idx, t_idx))
+                .size(24.0, 24.0)
+                .radius(12.0)
+                .center()
+                .fill(rune::Color::TRANSPARENT)
+                .child(icon(&icons::NEW_PLAYLIST, 14.0).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.playlist_picker_track = Some(track_add_clone.clone());
+                    s.show_playlist_picker = true;
+                });
+
+            let card_bottom = row()
+                .w_full()
+                .center_y()
+                .justify_between()
+                .child(card_artist)
+                .child(add_btn);
+
             let track_clone = item.clone();
             let section_items = section.items.clone();
             let card = col()
@@ -94,7 +114,7 @@ pub fn render(s: &AppState) -> El {
                 .gap(6.0)
                 .child(card_thumb)
                 .child(card_title)
-                .child(card_artist)
+                .child(card_bottom)
                 .on_press(move |s: &mut AppState| {
                     s.queue = section_items.clone();
                     s.queue_index = t_idx;
