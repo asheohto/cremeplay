@@ -266,6 +266,22 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         s.duration = status.duration;
     }
 
+    // Pre-resolve upcoming track audio stream (Gapless buffering)
+    if s.is_playing && s.duration > 0.0 && s.current_time >= (s.duration - 15.0).max(0.0) {
+        if s.queue_index + 1 < s.queue.len() {
+            let next_video_id = s.queue[s.queue_index + 1].video_id.clone();
+            let mut last_pref = s.last_prefetched_id.lock().unwrap();
+            if last_pref.as_deref() != Some(&next_video_id) {
+                *last_pref = Some(next_video_id.clone());
+                let innertube = s.innertube.clone();
+                tokio::spawn(async move {
+                    log::info!("[Player] Pre-resolving upcoming audio stream: {}", next_video_id);
+                    let _ = innertube.get_audio_stream_url(&next_video_id).await;
+                });
+            }
+        }
+    }
+
     // Auto-advance track on finish
     if s.is_playing && s.duration > 0.0 && s.current_time >= s.duration - 0.5 {
         match s.repeat_mode {

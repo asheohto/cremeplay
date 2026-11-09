@@ -8,6 +8,7 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, COOKI
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -121,6 +122,7 @@ pub struct InnertubeClient {
     client: reqwest::Client,
     cookies: Arc<Mutex<Option<String>>>,
     rustypipe: rustypipe::client::RustyPipe,
+    stream_cache: Arc<Mutex<HashMap<String, (String, std::time::Instant)>>>,
 }
 
 impl InnertubeClient {
@@ -150,6 +152,7 @@ impl InnertubeClient {
             client,
             cookies: Arc::new(Mutex::new(None)),
             rustypipe,
+            stream_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1023,7 +1026,33 @@ impl InnertubeClient {
         }
     }
 
+    pub fn cache_stream_url(&self, video_id: &str, url: String) {
+        let mut cache = self.stream_cache.lock().unwrap();
+        if cache.len() >= 128 {
+            cache.clear();
+        }
+        cache.insert(video_id.to_string(), (url, std::time::Instant::now()));
+    }
+
     pub async fn get_audio_stream_url(&self, video_id: &str) -> Result<String, String> {
+        {
+            let cache = self.stream_cache.lock().unwrap();
+            if let Some((url, timestamp)) = cache.get(video_id) {
+                if timestamp.elapsed() < std::time::Duration::from_secs(7200) {
+                    info!("[Innertube] Cache hit for audio stream: {}", video_id);
+                    return Ok(url.clone());
+                }
+            }
+        }
+
+        let res = self.get_audio_stream_url_uncached(video_id).await;
+        if let Ok(ref url) = res {
+            self.cache_stream_url(video_id, url.clone());
+        }
+        res
+    }
+
+    async fn get_audio_stream_url_uncached(&self, video_id: &str) -> Result<String, String> {
         // Strategy 1: RustyPipe (Full JS deobfuscation, n-sig decode, cipher resolver)
         if let Ok(player) = self.rustypipe.query().player(video_id).await {
             // Prefer mp4 / aac (best compatibility with rodio / symphonia)

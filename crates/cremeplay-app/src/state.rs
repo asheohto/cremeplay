@@ -116,6 +116,7 @@ pub struct AppState {
     pub pending_artist_detail: Arc<Mutex<Option<ArtistDetail>>>,
     pub pending_account: Arc<Mutex<Option<AccountProfile>>>,
     pub pending_radio_queue: Arc<Mutex<Option<Vec<TrackItem>>>>,
+    pub last_prefetched_id: Arc<Mutex<Option<String>>>,
     pub waker: Arc<Mutex<Option<Waker>>>,
 
     // Image Cache
@@ -235,6 +236,7 @@ impl AppState {
             pending_artist_detail: Arc::new(Mutex::new(None)),
             pending_account: Arc::new(Mutex::new(None)),
             pending_radio_queue: Arc::new(Mutex::new(None)),
+            last_prefetched_id: Arc::new(Mutex::new(None)),
             waker: Arc::new(Mutex::new(None)),
 
             image_cache: Arc::new(Mutex::new(None)),
@@ -341,6 +343,7 @@ impl AppState {
             self.fetch_radio_recommendations(&track.video_id);
         }
 
+        *self.last_prefetched_id.lock().unwrap() = None;
         self.current_track = Some(track.clone());
         self.duration = track.duration;
         self.current_time = 0.0;
