@@ -55,6 +55,9 @@ It interfaces directly with YouTube Music's Innertube API via asynchronous Rust 
 
 ## Features
 
+- **Universal Custom Playlists & Quick Picker**: Create custom playlists, manage and remove tracks, and add songs with 1 click from search, artist profiles, playlists, player bar, or full now playing overlay.
+- **Variable Playback Speed & Device Switcher**: Dynamic speed adjustment (0.75x – 2.0x) with time scaling, plus live OS audio output device enumeration and switching in Settings.
+- **Sleep Timer & Visualizers**: Popover sleep timer with interval presets and track-end auto-pause, alongside real-time animated equalizer visualizers.
 - **Rune Native GPU Engine (Webviewless)**: Built with Rune (`wgpu`, `taffy`, `parley`) delivering 60 FPS GPU-accelerated rendering with **zero Chromium and zero WebView2** overhead (**~3.8 MB idle / ~28 MB active playback**).
 - **Concurrent Multi-Source Lyrics Subsystem**:
   - Automatically queries **Better-Lyrics (TTML word/line-by-line sync)**, **LRCLIB**, **YouTube Captions**, and **Genius** simultaneously.
@@ -137,10 +140,17 @@ The compiled Tauri v2 release binary is output to: `.\src-tauri\target\release\c
 | Shortcut | Action |
 | :--- | :--- |
 | `Space` | Play / Pause |
-| `Media Play / Pause` | Global system Play / Pause |
-| `Media Next` | Skip to next track |
-| `Media Previous` | Skip to previous track |
-| `Esc` | Clear search / Close modal views |
+| `N` / `Media Next` | Skip to next track |
+| `P` / `Media Previous` | Skip to previous track |
+| `M` | Mute / Unmute audio |
+| `Q` | Toggle Up Next queue drawer |
+| `L` | Toggle favorite / like on current track |
+| `F` | Toggle Now Playing overlay view |
+| `/` | Focus search bar |
+| `Ctrl+,` | Toggle Settings modal |
+| `Left / Right` | Seek backward / forward 5s |
+| `Up / Down` | Volume up / down 5% |
+| `Esc` | Clear search / Close open overlays & modals |
 
 ---
 
