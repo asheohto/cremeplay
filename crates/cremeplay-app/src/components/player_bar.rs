@@ -297,6 +297,21 @@ pub fn render(s: &AppState) -> El {
             }
         });
 
+    let has_sleep_timer = s.sleep_timer_end.is_some() || s.sleep_timer_end_of_track;
+    let sleep_btn = el()
+        .key("btn-sleep-timer")
+        .size(38.0, 38.0)
+        .radius(19.0)
+        .center()
+        .fill(if has_sleep_timer || s.show_sleep_timer_menu { t.hover } else { rune::Color::TRANSPARENT })
+        .child(
+            icon(&icons::CLOCK, 18.0)
+                .color(if has_sleep_timer { t.brand } else { t.muted }),
+        )
+        .on_press(|s: &mut AppState| {
+            s.show_sleep_timer_menu = !s.show_sleep_timer_menu;
+        });
+
     let queue_btn = el()
         .key("btn-queue")
         .size(38.0, 38.0)
@@ -315,12 +330,81 @@ pub fn render(s: &AppState) -> El {
         .font(typo::CAPTION)
         .color(t.muted);
 
+    let sleep_popover = if s.show_sleep_timer_menu {
+        let timer_btn = |label: &'static str, mins: Option<u32>, end_of_track: bool, is_active: bool| {
+            el()
+                .h(30.0)
+                .px(10.0)
+                .radius(6.0)
+                .fill(if is_active { t.brand } else { rune::Color::TRANSPARENT })
+                .center_y()
+                .child(
+                    text(label)
+                        .font(typo::LABEL)
+                        .color(if is_active { t.brand_text } else { t.heading }),
+                )
+                .on_press(move |s: &mut AppState| {
+                    s.set_sleep_timer(mins, end_of_track);
+                })
+        };
+
+        let remaining_str = if let Some(target) = s.sleep_timer_end {
+            let now = std::time::Instant::now();
+            if target > now {
+                let secs = (target - now).as_secs();
+                format!("{}m {:02}s", secs / 60, secs % 60)
+            } else {
+                "Ending...".to_string()
+            }
+        } else if s.sleep_timer_end_of_track {
+            "End of track".to_string()
+        } else {
+            "Off".to_string()
+        };
+
+        Some(
+            col()
+                .key("sleep-timer-popover")
+                .absolute(-140.0, -230.0)
+                .w(180.0)
+                .padding(8.0)
+                .radius(10.0)
+                .fill(t.panel)
+                .border(1.0, t.border)
+                .gap(2.0)
+                .child(
+                    row()
+                        .w_full()
+                        .px(8.0)
+                        .py(4.0)
+                        .justify_between()
+                        .center_y()
+                        .child(text("Sleep Timer").font(typo::LABEL).color(t.heading))
+                        .child(text(remaining_str).font(typo::CAPTION).color(t.muted)),
+                )
+                .child(timer_btn("15 minutes", Some(15), false, s.sleep_timer_duration_mins == Some(15)))
+                .child(timer_btn("30 minutes", Some(30), false, s.sleep_timer_duration_mins == Some(30)))
+                .child(timer_btn("45 minutes", Some(45), false, s.sleep_timer_duration_mins == Some(45)))
+                .child(timer_btn("60 minutes", Some(60), false, s.sleep_timer_duration_mins == Some(60)))
+                .child(timer_btn("End of track", None, true, s.sleep_timer_end_of_track))
+                .child(timer_btn("Turn off", None, false, !has_sleep_timer)),
+        )
+    } else {
+        None
+    };
+
+    let mut sleep_wrapper = el().key("sleep-wrapper").child(sleep_btn);
+    if let Some(pop) = sleep_popover {
+        sleep_wrapper = sleep_wrapper.child(pop);
+    }
+
     let right = row()
         .center_y()
         .gap(10.0)
         .child(mute_btn)
         .child(vol_track)
         .child(vol_pct)
+        .child(sleep_wrapper)
         .child(queue_btn);
 
     // Full 76px bottom player bar

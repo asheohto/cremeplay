@@ -283,16 +283,36 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         }
     }
 
+    // Sleep timer expiration
+    if let Some(target) = s.sleep_timer_end {
+        if std::time::Instant::now() >= target {
+            log::info!("[Sleep Timer] Timer expired, pausing playback");
+            s.sleep_timer_end = None;
+            s.sleep_timer_duration_mins = None;
+            s.is_playing = false;
+            s.player.pause();
+            state_changed = true;
+        }
+    }
+
     // Auto-advance track on finish
     if s.is_playing && s.duration > 0.0 && s.current_time >= s.duration - 0.5 {
-        match s.repeat_mode {
-            crate::state::RepeatMode::One => {
-                if let Some(track) = s.current_track.clone() {
-                    s.play_track(track);
+        if s.sleep_timer_end_of_track {
+            log::info!("[Sleep Timer] Reached end of track, pausing playback");
+            s.sleep_timer_end_of_track = false;
+            s.is_playing = false;
+            s.player.pause();
+            state_changed = true;
+        } else {
+            match s.repeat_mode {
+                crate::state::RepeatMode::One => {
+                    if let Some(track) = s.current_track.clone() {
+                        s.play_track(track);
+                    }
                 }
-            }
-            _ => {
-                s.play_next();
+                _ => {
+                    s.play_next();
+                }
             }
         }
     }
@@ -343,6 +363,12 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         available_lyrics_sources: s.available_lyrics.keys().cloned().collect(),
         is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
         latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
+        sleep_timer_active: s.sleep_timer_end.is_some() || s.sleep_timer_end_of_track,
+        sleep_timer_remaining_sec: s.sleep_timer_end.and_then(|t| {
+            let now = std::time::Instant::now();
+            if t > now { Some((t - now).as_secs()) } else { Some(0) }
+        }),
+        show_sleep_timer_menu: s.show_sleep_timer_menu,
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates
@@ -370,6 +396,10 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         }
         if s.show_queue_drawer {
             s.show_queue_drawer = false;
+            return true;
+        }
+        if s.show_sleep_timer_menu {
+            s.show_sleep_timer_menu = false;
             return true;
         }
     }

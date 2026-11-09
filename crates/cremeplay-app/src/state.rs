@@ -141,6 +141,12 @@ pub struct AppState {
     pub dominant_color: Option<rune::Color>,
     pub pending_dominant: Arc<Mutex<Option<rune::Color>>>,
 
+    // Sleep Timer
+    pub sleep_timer_end: Option<std::time::Instant>,
+    pub sleep_timer_duration_mins: Option<u32>,
+    pub sleep_timer_end_of_track: bool,
+    pub show_sleep_timer_menu: bool,
+
     // Core Managers
     pub player: Arc<AudioPlayer>,
     pub innertube: Arc<InnertubeClient>,
@@ -248,6 +254,11 @@ impl AppState {
             dominant_color: None,
             pending_dominant: Arc::new(Mutex::new(None)),
 
+            sleep_timer_end: None,
+            sleep_timer_duration_mins: None,
+            sleep_timer_end_of_track: false,
+            show_sleep_timer_menu: false,
+
             player,
             innertube,
             lrclib,
@@ -310,6 +321,17 @@ impl AppState {
                 }
             }
         });
+    }
+
+    pub fn set_sleep_timer(&mut self, mins: Option<u32>, end_of_track: bool) {
+        self.sleep_timer_end_of_track = end_of_track;
+        self.sleep_timer_duration_mins = mins;
+        if let Some(m) = mins {
+            self.sleep_timer_end = Some(std::time::Instant::now() + std::time::Duration::from_secs((m as u64) * 60));
+        } else {
+            self.sleep_timer_end = None;
+        }
+        self.show_sleep_timer_menu = false;
     }
 
     pub fn load_artist(&mut self, browse_id: &str) {

@@ -48,6 +48,9 @@ pub struct AppStatusDto {
     pub available_lyrics_sources: Vec<String>,
     pub is_update_available: bool,
     pub latest_version: Option<String>,
+    pub sleep_timer_active: bool,
+    pub sleep_timer_remaining_sec: Option<u64>,
+    pub show_sleep_timer_menu: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -68,6 +71,8 @@ pub enum AgentAction {
     ToggleNowPlaying,
     ToggleSettings,
     ToggleLike,
+    ToggleSleepTimerMenu,
+    SleepTimer { mins: Option<u32>, end_of_track: Option<bool> },
     LoadArtist { id: String },
     LoadPlaylist { id: String },
     PlayTrack { track: TrackItem },
@@ -260,6 +265,12 @@ async fn handle_request(
                     available_lyrics_sources: s.available_lyrics.keys().cloned().collect(),
                     is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
                     latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
+                    sleep_timer_active: s.sleep_timer_end.is_some() || s.sleep_timer_end_of_track,
+                    sleep_timer_remaining_sec: s.sleep_timer_end.and_then(|t| {
+                        let now = std::time::Instant::now();
+                        if t > now { Some((t - now).as_secs()) } else { Some(0) }
+                    }),
+                    show_sleep_timer_menu: s.show_sleep_timer_menu,
                 };
                 let _ = tx.send(dto);
             });
@@ -504,6 +515,15 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::DismissUpdate => {
             s.dismiss_update();
             r#"{"status":"ok","action":"dismiss_update"}"#.to_string()
+        }
+        AgentAction::ToggleSleepTimerMenu => {
+            s.show_sleep_timer_menu = !s.show_sleep_timer_menu;
+            format!(r#"{{"status":"ok","action":"toggle_sleep_timer_menu","show":{}}}"#, s.show_sleep_timer_menu)
+        }
+        AgentAction::SleepTimer { mins, end_of_track } => {
+            let eot = end_of_track.unwrap_or(false);
+            s.set_sleep_timer(mins, eot);
+            format!(r#"{{"status":"ok","action":"sleep_timer","mins":{:?},"end_of_track":{}}}"#, mins, eot)
         }
     }
 }
