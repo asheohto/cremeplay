@@ -329,6 +329,12 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
                     };
                     return true;
                 }
+                "l" | "L" => {
+                    if let Some(track) = s.current_track.clone() {
+                        s.toggle_like(track);
+                        return true;
+                    }
+                }
                 _ => {}
             }
         }
