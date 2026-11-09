@@ -981,6 +981,7 @@ impl AppState {
     }
 
     pub fn toggle_like(&mut self, track: TrackItem) {
+        let is_removing = self.liked_tracks.iter().any(|t| t.video_id == track.video_id);
         if let Some(pos) = self.liked_tracks.iter().position(|t| t.video_id == track.video_id) {
             self.liked_tracks.remove(pos);
         } else {
@@ -989,6 +990,18 @@ impl AppState {
         let mut cfg = self.config_mgr.get();
         cfg.liked_tracks = self.liked_tracks.clone();
         self.config_mgr.save(cfg);
+
+        if let Some(current) = &mut self.current_playlist
+            && current.browse_id == "LM" {
+                current.tracks = self.liked_tracks.clone();
+                current.track_count = current.tracks.len();
+                if let Some(first) = current.tracks.first() {
+                    current.artwork_url = first.artwork_url.clone();
+                } else {
+                    current.artwork_url.clear();
+                }
+            }
+        let _ = is_removing;
     }
 
     pub fn submit_cookies(&mut self) {
