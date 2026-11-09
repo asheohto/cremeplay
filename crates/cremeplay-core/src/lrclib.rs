@@ -186,7 +186,7 @@ impl LrclibClient {
     }
 
     fn pick_best_candidate(
-        candidates: &mut Vec<LrclibResponse>,
+        candidates: &mut [LrclibResponse],
         target_duration: Option<f64>,
     ) -> Option<LyricsPayload> {
         if candidates.is_empty() {

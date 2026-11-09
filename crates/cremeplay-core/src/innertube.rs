@@ -1,4 +1,4 @@
-/**
+/*!
  * YouTube Music Innertube API Client (Pure Rust)
  * Directly queries YouTube Music JSON APIs with full Google Account authentication support.
  */

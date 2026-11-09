@@ -70,6 +70,7 @@ impl TunaManager {
         *self.enabled.lock().unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_track(
         &self,
         title: &str,

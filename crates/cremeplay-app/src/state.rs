@@ -116,6 +116,7 @@ pub struct AppState {
     pub pending_explore_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_search_results: Arc<Mutex<Option<SearchResultPayload>>>,
     pub pending_suggestions: Arc<Mutex<Option<Vec<String>>>>,
+    #[allow(clippy::type_complexity)]
     pub pending_lyrics: Arc<Mutex<Option<(LyricsPayload, HashMap<String, LyricsPayload>)>>>,
     pub pending_playlists: Arc<Mutex<Option<Vec<SidebarPlaylist>>>>,
     pub pending_playlist_detail: Arc<Mutex<Option<PlaylistDetail>>>,
@@ -133,6 +134,7 @@ pub struct AppState {
 
     pub sponsorblock: Arc<SponsorBlockClient>,
     pub sponsor_segments: Vec<(f64, f64)>,
+    #[allow(clippy::type_complexity)]
     pub pending_segments: Arc<Mutex<Option<Vec<(f64, f64)>>>>,
 
     // Update State

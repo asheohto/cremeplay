@@ -8,19 +8,26 @@ pub fn start(handle: rune::AppHandle<crate::state::AppState>) {
         .name("cremeplay-media-keys".to_string())
         .spawn(move || {
             use std::os::raw::c_int;
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             type HWND = *mut std::ffi::c_void;
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             type UINT = u32;
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             type WPARAM = usize;
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             type LPARAM = isize;
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             type BOOL = c_int;
 
             #[repr(C)]
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             struct POINT {
                 _x: i32,
                 _y: i32,
             }
 
             #[repr(C)]
+            #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
             struct MSG {
                 _hwnd: HWND,
                 message: UINT,

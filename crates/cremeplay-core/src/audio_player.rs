@@ -1,4 +1,4 @@
-/**
+/*!
  * Native Rust Audio Engine (rodio 0.22 + symphonia)
  * Zero-overhead audio playback directly to Windows WASAPI sound device.
  */
