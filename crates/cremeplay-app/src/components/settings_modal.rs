@@ -95,38 +95,57 @@ pub fn render(s: &AppState) -> El {
             }
 
             // Toggles
-            let toggle_row = |title: &str, is_on: bool| {
+            let toggle_row = |key: String, title: &str, is_on: bool, on_toggle: fn(&mut AppState)| {
                 row()
+                    .key(key)
                     .w_full()
-                    .h(36.0)
+                    .h(40.0)
+                    .radius(10.0)
+                    .px(12.0)
                     .justify_between()
                     .center_y()
+                    .fill(t.hover)
                     .child(text(title).font(typo::BODY).color(t.heading))
                     .child(
-                        el()
-                            .size(36.0, 20.0)
-                            .radius(10.0)
-                            .fill(if is_on { t.brand } else { t.hover })
-                            .padding(2.0)
+                        row()
+                            .size(42.0, 24.0)
+                            .radius(12.0)
+                            .fill(if is_on { t.brand } else { t.border })
+                            .padding(3.0)
+                            .center_y()
                             .child(
                                 el()
-                                    .size(16.0, 16.0)
-                                    .radius(8.0)
-                                    .fill(rune::Color::WHITE),
+                                    .size(18.0, 18.0)
+                                    .radius(9.0)
+                                    .fill(rune::Color::WHITE)
+                                    .ml(if is_on { 18.0 } else { 0.0 }),
                             ),
                     )
+                    .on_press(on_toggle)
             };
 
             let cfg = s.config_mgr.get();
             col()
                 .w_full()
-                .gap(14.0)
+                .gap(12.0)
                 .child(theme_header)
                 .child(theme_grid)
                 .child(divider())
-                .child(toggle_row("Autoplay on startup", cfg.autoplay))
-                .child(toggle_row("Smooth UI animations", cfg.animations))
-                .child(toggle_row("Close to system tray", cfg.close_to_tray))
+                .child(toggle_row("toggle-autoplay".to_string(), "Autoplay on startup", cfg.autoplay, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.autoplay = !cfg.autoplay;
+                    s.config_mgr.save(cfg);
+                }))
+                .child(toggle_row("toggle-anim".to_string(), "Smooth UI animations", cfg.animations, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.animations = !cfg.animations;
+                    s.config_mgr.save(cfg);
+                }))
+                .child(toggle_row("toggle-tray".to_string(), "Close to system tray", cfg.close_to_tray, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.close_to_tray = !cfg.close_to_tray;
+                    s.config_mgr.save(cfg);
+                }))
         }
         SettingsTab::Account => {
             if let Some(acc) = &s.account {
@@ -243,22 +262,109 @@ pub fn render(s: &AppState) -> El {
             }
         }
         SettingsTab::Lyrics => {
+            let cfg = s.config_mgr.get();
+            let toggle_row = |key: String, title: &str, is_on: bool, on_toggle: fn(&mut AppState)| {
+                row()
+                    .key(key)
+                    .w_full()
+                    .h(40.0)
+                    .radius(10.0)
+                    .px(12.0)
+                    .justify_between()
+                    .center_y()
+                    .fill(t.hover)
+                    .child(text(title).font(typo::BODY).color(t.heading))
+                    .child(
+                        row()
+                            .size(42.0, 24.0)
+                            .radius(12.0)
+                            .fill(if is_on { t.brand } else { t.border })
+                            .padding(3.0)
+                            .center_y()
+                            .child(
+                                el()
+                                    .size(18.0, 18.0)
+                                    .radius(9.0)
+                                    .fill(rune::Color::WHITE)
+                                    .ml(if is_on { 18.0 } else { 0.0 }),
+                            ),
+                    )
+                    .on_press(on_toggle)
+            };
+
             col()
                 .w_full()
-                .gap(14.0)
+                .gap(12.0)
                 .child(text("Lyrics Settings").font(typo::TITLE).color(t.heading))
-                .child(text("Romanized Lyrics: Subtext").font(typo::BODY).color(t.body))
-                .child(text("Preferred Source: Auto (LRCLIB -> Better-Lyrics -> YT)").font(typo::BODY).color(t.body))
+                .child(toggle_row("toggle-romanize".to_string(), "Romanize Foreign Lyrics", cfg.romanize_lyrics, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.romanize_lyrics = !cfg.romanize_lyrics;
+                    s.config_mgr.save(cfg);
+                }))
+                .child(
+                    row()
+                        .w_full()
+                        .h(40.0)
+                        .radius(10.0)
+                        .px(12.0)
+                        .justify_between()
+                        .center_y()
+                        .fill(t.hover)
+                        .child(text("Preferred Source").font(typo::BODY).color(t.heading))
+                        .child(text("Auto (LRCLIB -> Better-Lyrics -> YT)").font(typo::CAPTION).color(t.brand)),
+                )
         }
         SettingsTab::Integrations => {
             let cfg = s.config_mgr.get();
+            let toggle_row = |key: String, title: &str, is_on: bool, on_toggle: fn(&mut AppState)| {
+                row()
+                    .key(key)
+                    .w_full()
+                    .h(40.0)
+                    .radius(10.0)
+                    .px(12.0)
+                    .justify_between()
+                    .center_y()
+                    .fill(t.hover)
+                    .child(text(title).font(typo::BODY).color(t.heading))
+                    .child(
+                        row()
+                            .size(42.0, 24.0)
+                            .radius(12.0)
+                            .fill(if is_on { t.brand } else { t.border })
+                            .padding(3.0)
+                            .center_y()
+                            .child(
+                                el()
+                                    .size(18.0, 18.0)
+                                    .radius(9.0)
+                                    .fill(rune::Color::WHITE)
+                                    .ml(if is_on { 18.0 } else { 0.0 }),
+                            ),
+                    )
+                    .on_press(on_toggle)
+            };
+
             col()
                 .w_full()
                 .gap(12.0)
                 .child(text("Integrations").font(typo::TITLE).color(t.heading))
-                .child(text(format!("Discord Rich Presence: {}", if cfg.discord_rpc { "Enabled" } else { "Disabled" })).font(typo::BODY).color(t.body))
-                .child(text(format!("SponsorBlock auto-skip: {}", if cfg.sponsorblock { "Enabled" } else { "Disabled" })).font(typo::BODY).color(t.body))
-                .child(text(format!("OBS Tuna overlay (port 1608): {}", if cfg.tuna_obs { "Enabled" } else { "Disabled" })).font(typo::BODY).color(t.body))
+                .child(toggle_row("toggle-discord".to_string(), "Discord Rich Presence", cfg.discord_rpc, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.discord_rpc = !cfg.discord_rpc;
+                    s.discord.set_enabled(cfg.discord_rpc);
+                    s.config_mgr.save(cfg);
+                }))
+                .child(toggle_row("toggle-sponsor".to_string(), "SponsorBlock Segment Auto-skip", cfg.sponsorblock, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.sponsorblock = !cfg.sponsorblock;
+                    s.config_mgr.save(cfg);
+                }))
+                .child(toggle_row("toggle-tuna".to_string(), "OBS Tuna Overlay (port 1608)", cfg.tuna_obs, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.tuna_obs = !cfg.tuna_obs;
+                    s.config_mgr.save(cfg);
+                }))
         }
         SettingsTab::About => {
             col()
