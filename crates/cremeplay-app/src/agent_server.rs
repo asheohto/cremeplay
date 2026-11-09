@@ -46,6 +46,8 @@ pub struct AppStatusDto {
     pub lyrics_source: String,
     pub lyrics_offset_ms: i32,
     pub available_lyrics_sources: Vec<String>,
+    pub is_update_available: bool,
+    pub latest_version: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -73,6 +75,8 @@ pub enum AgentAction {
     SelectLyricsSource { source: String },
     AdjustLyricsOffset { delta_ms: i32 },
     SaveCustomLyrics { lyrics: String },
+    CheckForUpdates { manual: Option<bool> },
+    DismissUpdate,
 }
 
 pub fn start(handle: AppHandle<AppState>) {
@@ -254,6 +258,8 @@ async fn handle_request(
                     lyrics_source: s.lyrics_source.clone(),
                     lyrics_offset_ms: s.lyrics_offset_ms,
                     available_lyrics_sources: s.available_lyrics.keys().cloned().collect(),
+                    is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
+                    latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
                 };
                 let _ = tx.send(dto);
             });
@@ -490,6 +496,14 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::SaveCustomLyrics { lyrics } => {
             s.save_custom_lyrics(lyrics);
             r#"{"status":"ok","action":"save_custom_lyrics"}"#.to_string()
+        }
+        AgentAction::CheckForUpdates { manual } => {
+            s.check_for_updates(manual.unwrap_or(true));
+            r#"{"status":"ok","action":"check_for_updates"}"#.to_string()
+        }
+        AgentAction::DismissUpdate => {
+            s.dismiss_update();
+            r#"{"status":"ok","action":"dismiss_update"}"#.to_string()
         }
     }
 }

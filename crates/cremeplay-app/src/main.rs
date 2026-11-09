@@ -124,6 +124,11 @@ fn setup(s: &mut AppState, waker: Waker) {
             waker_clone();
         }
     });
+
+    // Check for updates if enabled in config
+    if s.config_mgr.get().check_updates {
+        s.check_for_updates(false);
+    }
 }
 
 /// Poll ticker: updates progress bar & audio state smoothly while playing
@@ -199,6 +204,27 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         state_changed = true;
     }
 
+    // Drain update check
+    if let Some(opt) = s.pending_update.lock().unwrap().take() {
+        s.is_checking_update = false;
+        if let Some(info) = opt {
+            let is_newer = info.is_update_available;
+            let dismissed = s.config_mgr.get().dismissed_update.clone();
+            if is_newer {
+                if dismissed.as_deref() != Some(&info.latest_version) {
+                    s.show_update_banner = true;
+                }
+                s.update_status_message = Some(format!("v{} Available!", info.latest_version));
+            } else {
+                s.update_status_message = Some(format!("You're on the latest version (v{})", info.current_version));
+            }
+            s.update_info = Some(info);
+        } else {
+            s.update_status_message = Some("Failed to check for updates".to_string());
+        }
+        state_changed = true;
+    }
+
     let status = s.player.get_status();
     let prev_playing = s.is_playing;
     let prev_time = s.current_time;
@@ -267,6 +293,8 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         lyrics_source: s.lyrics_source.clone(),
         lyrics_offset_ms: s.lyrics_offset_ms,
         available_lyrics_sources: s.available_lyrics.keys().cloned().collect(),
+        is_update_available: s.update_info.as_ref().map(|u| u.is_update_available).unwrap_or(false),
+        latest_version: s.update_info.as_ref().map(|u| u.latest_version.clone()),
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

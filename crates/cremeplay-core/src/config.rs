@@ -44,6 +44,10 @@ pub struct AppConfig {
     pub custom_lyrics: std::collections::HashMap<String, String>,
     #[serde(default)]
     pub song_offsets: std::collections::HashMap<String, i32>,
+    #[serde(default = "default_true")]
+    pub check_updates: bool,
+    #[serde(default)]
+    pub dismissed_update: Option<String>,
 }
 
 fn default_theme() -> String {
@@ -104,6 +108,8 @@ impl Default for AppConfig {
             liked_tracks: Vec::new(),
             custom_lyrics: std::collections::HashMap::new(),
             song_offsets: std::collections::HashMap::new(),
+            check_updates: true,
+            dismissed_update: None,
         }
     }
 }

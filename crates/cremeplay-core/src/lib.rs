@@ -5,6 +5,7 @@ pub mod innertube;
 pub mod lrclib;
 pub mod sponsorblock;
 pub mod tuna;
+pub mod updater;
 
 pub use audio_player::{AudioPlayer, PlayerStatus};
 pub use config::{AppConfig, ConfigManager};
@@ -13,3 +14,4 @@ pub use innertube::{InnertubeClient, TrackItem, HomeSection, SearchResultPayload
 pub use lrclib::{LrclibClient, LyricsPayload};
 pub use sponsorblock::SponsorBlockClient;
 pub use tuna::TunaManager;
+pub use updater::{check_for_updates, is_newer_version, UpdateInfo};

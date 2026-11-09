@@ -190,11 +190,45 @@ pub fn render(s: &AppState) -> El {
             s.settings_tab = crate::state::SettingsTab::Account;
         });
 
-    let right = row()
-        .w(220.0)
+    let mut right = row()
         .justify_end()
         .center_y()
-        .gap(10.0)
+        .gap(10.0);
+
+    if s.show_update_banner {
+        let tag = s.update_info.as_ref().map(|u| u.latest_version.as_str()).unwrap_or("New");
+        let update_pill = row()
+            .key("header-update-badge")
+            .h(32.0)
+            .px(12.0)
+            .radius(16.0)
+            .center_y()
+            .gap(6.0)
+            .fill(t.band)
+            .border(1.0, t.brand)
+            .child(
+                text(format!("Update v{}", tag))
+                    .font(typo::CAPTION)
+                    .color(t.brand_text),
+            )
+            .child(
+                el()
+                    .key("btn-header-dismiss-upd")
+                    .size(16.0, 16.0)
+                    .radius(8.0)
+                    .center()
+                    .child(icon(&icons::CLOSE, 10.0).color(t.muted))
+                    .on_press(|s: &mut AppState| {
+                        s.dismiss_update();
+                    }),
+            )
+            .on_press(|s: &mut AppState| {
+                s.open_update_url();
+            });
+        right = right.child(update_pill);
+    }
+
+    right = right
         .child(theme_btn)
         .child(settings_btn)
         .child(signin_btn);

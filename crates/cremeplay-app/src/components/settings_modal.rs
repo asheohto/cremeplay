@@ -501,12 +501,156 @@ pub fn render(s: &AppState) -> El {
                 }))
         }
         SettingsTab::About => {
+            let cfg = s.config_mgr.get();
+            let toggle_row = |key: String, title: &str, is_on: bool, on_toggle: fn(&mut AppState)| {
+                row()
+                    .key(key)
+                    .w_full()
+                    .h(40.0)
+                    .radius(10.0)
+                    .px(12.0)
+                    .justify_between()
+                    .center_y()
+                    .fill(t.hover)
+                    .child(text(title).font(typo::BODY).color(t.heading))
+                    .child(
+                        row()
+                            .size(42.0, 24.0)
+                            .radius(12.0)
+                            .fill(if is_on { t.brand } else { t.border })
+                            .padding(3.0)
+                            .center_y()
+                            .child(
+                                el()
+                                    .size(18.0, 18.0)
+                                    .radius(9.0)
+                                    .fill(rune::Color::WHITE)
+                                    .ml(if is_on { 18.0 } else { 0.0 }),
+                            ),
+                    )
+                    .on_press(on_toggle)
+            };
+
+            let update_button = if s.is_checking_update {
+                el()
+                    .key("btn-check-updates")
+                    .h(32.0)
+                    .px(14.0)
+                    .radius(16.0)
+                    .fill(t.hover)
+                    .center()
+                    .child(text("Checking for updates…").font(typo::CAPTION).color(t.muted))
+            } else if let Some(info) = &s.update_info {
+                if info.is_update_available {
+                    el()
+                        .key("btn-download-update")
+                        .h(32.0)
+                        .px(14.0)
+                        .radius(16.0)
+                        .fill(t.brand)
+                        .center()
+                        .child(text(format!("Download v{}", info.latest_version)).font(typo::LABEL).color(t.brand_text))
+                        .on_press(|s: &mut AppState| {
+                            s.open_update_url();
+                        })
+                } else {
+                    el()
+                        .key("btn-check-updates")
+                        .h(32.0)
+                        .px(14.0)
+                        .radius(16.0)
+                        .fill(t.hover)
+                        .border(1.0, t.border)
+                        .center()
+                        .child(text("Check for Updates").font(typo::CAPTION).color(t.heading))
+                        .on_press(|s: &mut AppState| {
+                            s.check_for_updates(true);
+                        })
+                }
+            } else {
+                el()
+                    .key("btn-check-updates")
+                    .h(32.0)
+                    .px(14.0)
+                    .radius(16.0)
+                    .fill(t.hover)
+                    .border(1.0, t.border)
+                    .center()
+                    .child(text("Check for Updates").font(typo::CAPTION).color(t.heading))
+                    .on_press(|s: &mut AppState| {
+                        s.check_for_updates(true);
+                    })
+            };
+
+            let status_text = s.update_status_message.as_deref().unwrap_or("Cremeplay is up to date");
+
             col()
                 .w_full()
                 .gap(12.0)
                 .child(text("Cremeplay").font(typo::TITLE).color(t.heading))
-                .child(text("Version 1.2.0 (Native Rune Webviewless Edition)").font(typo::BODY).color(t.brand))
-                .child(text("Zero bloat, ultra-low memory YouTube Music client in pure Rust & Rune.").font(typo::CAPTION).color(t.muted))
+                .child(text("Version 1.2.0 (Native Rune Webviewless Architecture)").font(typo::BODY).color(t.brand))
+                .child(text("Zero bloat, ultra-low memory (~30 MB RAM) YouTube Music client in pure Rust & Rune.").font(typo::CAPTION).color(t.muted))
+                .child(
+                    row()
+                        .w_full()
+                        .h(46.0)
+                        .radius(10.0)
+                        .px(12.0)
+                        .justify_between()
+                        .center_y()
+                        .fill(t.hover)
+                        .child(
+                            col()
+                                .gap(2.0)
+                                .child(text("Software Updates").font(typo::BODY).color(t.heading))
+                                .child(text(status_text).font(typo::CAPTION).color(t.muted)),
+                        )
+                        .child(update_button),
+                )
+                .child(toggle_row("toggle-auto-update".to_string(), "Automatically Check on Startup", cfg.check_updates, |s| {
+                    let mut cfg = s.config_mgr.get();
+                    cfg.check_updates = !cfg.check_updates;
+                    s.config_mgr.save(cfg);
+                }))
+                .child(
+                    row()
+                        .gap(12.0)
+                        .pt(8.0)
+                        .child(
+                            el()
+                                .key("btn-open-github")
+                                .h(30.0)
+                                .px(12.0)
+                                .radius(15.0)
+                                .fill(t.surface)
+                                .border(1.0, t.border)
+                                .center()
+                                .child(text("GitHub Repository").font(typo::CAPTION).color(t.heading))
+                                .on_press(|_: &mut AppState| {
+                                    #[cfg(target_os = "windows")]
+                                    let _ = std::process::Command::new("cmd")
+                                        .args(["/C", "start", "https://github.com/asheohto/cremeplay"])
+                                        .spawn();
+                                }),
+                        )
+                        .child(
+                            el()
+                                .key("btn-open-issues")
+                                .h(30.0)
+                                .px(12.0)
+                                .radius(15.0)
+                                .fill(t.surface)
+                                .border(1.0, t.border)
+                                .center()
+                                .child(text("Report an Issue").font(typo::CAPTION).color(t.muted))
+                                .on_press(|_: &mut AppState| {
+                                    #[cfg(target_os = "windows")]
+                                    let _ = std::process::Command::new("cmd")
+                                        .args(["/C", "start", "https://github.com/asheohto/cremeplay/issues"])
+                                        .spawn();
+                                }),
+                        ),
+                )
         }
     };
 

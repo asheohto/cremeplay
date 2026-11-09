@@ -126,6 +126,13 @@ pub struct AppState {
     pub sponsor_segments: Vec<(f64, f64)>,
     pub pending_segments: Arc<Mutex<Option<Vec<(f64, f64)>>>>,
 
+    // Update State
+    pub update_info: Option<cremeplay_core::UpdateInfo>,
+    pub is_checking_update: bool,
+    pub show_update_banner: bool,
+    pub update_status_message: Option<String>,
+    pub pending_update: Arc<Mutex<Option<Option<cremeplay_core::UpdateInfo>>>>,
+
     // Theming
     pub theme: Theme,
 
@@ -241,6 +248,12 @@ impl AppState {
             sponsorblock,
             sponsor_segments: Vec::new(),
             pending_segments,
+
+            update_info: None,
+            is_checking_update: false,
+            show_update_banner: false,
+            update_status_message: None,
+            pending_update: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -476,6 +489,41 @@ impl AppState {
             let mut cfg = self.config_mgr.get();
             cfg.custom_lyrics.insert(track.video_id.clone(), clean);
             self.config_mgr.save(cfg);
+        }
+    }
+
+    pub fn check_for_updates(&mut self, _manual: bool) {
+        self.is_checking_update = true;
+        self.update_status_message = None;
+
+        let pending = self.pending_update.clone();
+        let waker_arc = self.waker.clone();
+        let current_ver = env!("CARGO_PKG_VERSION").to_string();
+
+        tokio::spawn(async move {
+            let res = cremeplay_core::updater::check_for_updates(&current_ver).await;
+            *pending.lock().unwrap() = Some(res);
+            if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                waker();
+            }
+        });
+    }
+
+    pub fn dismiss_update(&mut self) {
+        self.show_update_banner = false;
+        if let Some(info) = &self.update_info {
+            let mut cfg = self.config_mgr.get();
+            cfg.dismissed_update = Some(info.latest_version.clone());
+            self.config_mgr.save(cfg);
+        }
+    }
+
+    pub fn open_update_url(&self) {
+        if let Some(info) = &self.update_info {
+            #[cfg(target_os = "windows")]
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", &info.html_url])
+                .spawn();
         }
     }
 
