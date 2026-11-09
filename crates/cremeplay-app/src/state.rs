@@ -135,6 +135,8 @@ pub struct AppState {
 
     // Theming
     pub theme: Theme,
+    pub dominant_color: Option<rune::Color>,
+    pub pending_dominant: Arc<Mutex<Option<rune::Color>>>,
 
     // Core Managers
     pub player: Arc<AudioPlayer>,
@@ -238,6 +240,8 @@ impl AppState {
             logo_image: Arc::new(Mutex::new(None)),
 
             theme,
+            dominant_color: None,
+            pending_dominant: Arc::new(Mutex::new(None)),
 
             player,
             innertube,
@@ -271,7 +275,13 @@ impl AppState {
     }
 
     pub fn set_theme(&mut self, theme_id: &str) {
-        self.theme = Theme::get(theme_id);
+        let mut t = Theme::get(theme_id);
+        if theme_id == "adaptive" {
+            if let Some(dom) = self.dominant_color {
+                t = t.with_tint(dom);
+            }
+        }
+        self.theme = t;
         let mut cfg = self.config_mgr.get();
         cfg.theme = theme_id.to_string();
         self.config_mgr.save(cfg);
@@ -332,6 +342,25 @@ impl AppState {
             self.lyrics_offset_ms = off;
         } else {
             self.lyrics_offset_ms = self.config_mgr.get().lyrics_offset_ms;
+        }
+
+        // Spawn background task to extract dominant color from cover art for Adaptive Theme
+        let artwork_url = track.artwork_url.clone();
+        if !artwork_url.is_empty() {
+            let pending_dom = self.pending_dominant.clone();
+            let waker_dom = self.waker.clone();
+            tokio::spawn(async move {
+                if let Ok(resp) = reqwest::get(&artwork_url).await {
+                    if let Ok(bytes) = resp.bytes().await {
+                        if let Some(color) = extract_dominant_color(&bytes) {
+                            *pending_dom.lock().unwrap() = Some(color);
+                            if let Some(waker) = waker_dom.lock().unwrap().as_ref() {
+                                waker();
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         let player = self.player.clone();
@@ -786,5 +815,96 @@ impl AppState {
                 waker();
             }
         });
+    }
+}
+
+pub fn extract_dominant_color(bytes: &[u8]) -> Option<rune::Color> {
+    let img = image::load_from_memory(bytes).ok()?;
+    let rgb = img.to_rgb8();
+    let (width, height) = rgb.dimensions();
+    if width == 0 || height == 0 {
+        return None;
+    }
+
+    let step_x = (width / 16).max(1);
+    let step_y = (height / 16).max(1);
+
+    let mut best_color = None;
+    let mut max_score = -1.0f32;
+
+    for y in (0..height).step_by(step_y as usize) {
+        for x in (0..width).step_by(step_x as usize) {
+            let pixel = rgb.get_pixel(x, y);
+            let r = pixel[0] as f32 / 255.0;
+            let g = pixel[1] as f32 / 255.0;
+            let b = pixel[2] as f32 / 255.0;
+
+            let max_c = r.max(g).max(b);
+            let min_c = r.min(g).min(b);
+            let lum = (max_c + min_c) * 0.5;
+            let sat = if max_c == min_c {
+                0.0
+            } else if lum < 0.5 {
+                (max_c - min_c) / (max_c + min_c)
+            } else {
+                (max_c - min_c) / (2.0 - max_c - min_c)
+            };
+
+            // Avoid near-black, near-white, or completely desaturated grays
+            if lum > 0.15 && lum < 0.85 && sat > 0.15 {
+                let score = sat * (1.0 - (lum - 0.5).abs() * 2.0);
+                if score > max_score {
+                    max_score = score;
+                    best_color = Some(rune::Color { r, g, b, a: 1.0 });
+                }
+            }
+        }
+    }
+
+    best_color.or_else(|| {
+        let mut r_sum = 0.0f32;
+        let mut g_sum = 0.0f32;
+        let mut b_sum = 0.0f32;
+        let mut count = 0.0f32;
+        for y in (0..height).step_by(step_y as usize) {
+            for x in (0..width).step_by(step_x as usize) {
+                let pixel = rgb.get_pixel(x, y);
+                r_sum += pixel[0] as f32 / 255.0;
+                g_sum += pixel[1] as f32 / 255.0;
+                b_sum += pixel[2] as f32 / 255.0;
+                count += 1.0;
+            }
+        }
+        if count > 0.0 {
+            Some(rune::Color {
+                r: r_sum / count,
+                g: g_sum / count,
+                b: b_sum / count,
+                a: 1.0,
+            })
+        } else {
+            None
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_dominant_color() {
+        let mut img = image::RgbImage::new(10, 10);
+        for pixel in img.pixels_mut() {
+            *pixel = image::Rgb([200, 50, 50]);
+        }
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut bytes);
+        img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();
+
+        let color = extract_dominant_color(&bytes).expect("Should extract color");
+        assert!(color.r > 0.7);
+        assert!(color.g < 0.3);
+        assert!(color.b < 0.3);
     }
 }

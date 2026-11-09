@@ -36,6 +36,35 @@ impl Theme {
             .find(|t| t.id == id)
             .unwrap_or_else(|| all_themes()[0])
     }
+
+    pub fn with_tint(mut self, tint: Color) -> Self {
+        self.brand = tint;
+        self.brand_text = Color {
+            r: (tint.r * 1.25).min(1.0),
+            g: (tint.g * 1.25).min(1.0),
+            b: (tint.b * 1.25).min(1.0),
+            a: 1.0,
+        };
+        self.surface = Color {
+            r: (tint.r * 0.08).max(0.06),
+            g: (tint.g * 0.08).max(0.07),
+            b: (tint.b * 0.08).max(0.09),
+            a: 1.0,
+        };
+        self.panel = Color {
+            r: (tint.r * 0.12).max(0.09),
+            g: (tint.g * 0.12).max(0.10),
+            b: (tint.b * 0.12).max(0.12),
+            a: 1.0,
+        };
+        self.band = Color {
+            r: (tint.r * 0.18).max(0.12),
+            g: (tint.g * 0.18).max(0.13),
+            b: (tint.b * 0.18).max(0.15),
+            a: 1.0,
+        };
+        self
+    }
 }
 
 pub fn all_themes() -> [Theme; 10] {

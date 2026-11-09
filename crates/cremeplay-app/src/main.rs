@@ -7,6 +7,7 @@ mod theme;
 
 use components::{artist_view, explore_view, header, home_view, library_view, now_playing, player_bar, playlist_view, queue_drawer, search_view, settings_modal, sidebar};
 use state::{ActiveView, AppState};
+use theme::Theme;
 use std::time::Duration;
 use rune::{col, row, AppSpec, Cx, El, Key, KeyEvent, Tx, Waker};
 
@@ -170,6 +171,15 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         s.lyrics_source = lyrics.source.clone();
         s.lyrics = Some(lyrics);
         s.available_lyrics = all_sources;
+        state_changed = true;
+    }
+
+    // Drain dominant cover tint for Adaptive Theme
+    if let Some(color) = s.pending_dominant.lock().unwrap().take() {
+        s.dominant_color = Some(color);
+        if s.theme.id == "adaptive" {
+            s.theme = Theme::get("adaptive").with_tint(color);
+        }
         state_changed = true;
     }
 
