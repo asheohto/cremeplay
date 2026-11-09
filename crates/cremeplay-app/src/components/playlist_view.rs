@@ -166,17 +166,28 @@ pub fn render(s: &AppState) -> El {
             None
         };
 
-        let right_side = if let Some(btn) = remove_btn {
-            row()
-                .center_y()
-                .gap(12.0)
-                .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
-                .child(btn)
-        } else {
-            row()
-                .center_y()
-                .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
-        };
+        let track_add_clone = track.clone();
+        let add_btn = el()
+            .key(format!("btn-add-pl-track-{}", idx))
+            .size(28.0, 28.0)
+            .radius(14.0)
+            .center()
+            .fill(rune::Color::TRANSPARENT)
+            .child(icon(&icons::NEW_PLAYLIST, 16.0).color(t.muted))
+            .on_press(move |s: &mut AppState| {
+                s.playlist_picker_track = Some(track_add_clone.clone());
+                s.show_playlist_picker = true;
+            });
+
+        let mut right_side = row()
+            .center_y()
+            .gap(10.0)
+            .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
+            .child(add_btn);
+
+        if let Some(btn) = remove_btn {
+            right_side = right_side.child(btn);
+        }
 
         let track_row = row()
             .key(format!("pl-track-{}", idx))

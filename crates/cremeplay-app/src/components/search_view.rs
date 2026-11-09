@@ -154,6 +154,25 @@ pub fn render(s: &AppState) -> El {
 
             let track_clone = song.clone();
             let all_songs_clone = all_songs.clone();
+            let track_add_clone = song.clone();
+            let add_btn = el()
+                .key(format!("search-song-add-{}", idx))
+                .size(28.0, 28.0)
+                .radius(14.0)
+                .center()
+                .fill(rune::Color::TRANSPARENT)
+                .child(icon(&icons::NEW_PLAYLIST, 16.0).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.playlist_picker_track = Some(track_add_clone.clone());
+                    s.show_playlist_picker = true;
+                });
+
+            let song_right = row()
+                .center_y()
+                .gap(8.0)
+                .child(song_dur)
+                .child(add_btn);
+
             let song_row = row()
                 .key(format!("search-song-{}", idx))
                 .w_full()
@@ -175,7 +194,7 @@ pub fn render(s: &AppState) -> El {
                                 .child(song_artist),
                         ),
                 )
-                .child(song_dur)
+                .child(song_right)
                 .on_press(move |s: &mut AppState| {
                     s.queue = all_songs_clone.clone();
                     s.queue_index = idx;

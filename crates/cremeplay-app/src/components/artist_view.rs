@@ -129,6 +129,29 @@ pub fn render(s: &AppState) -> El {
                     .child(icon(&icons::MUSIC_NOTE, 18.0).color(t.muted))
             };
 
+            let track_add_clone = track.clone();
+            let add_btn = el()
+                .key(format!("artist-song-add-{}", idx))
+                .size(28.0, 28.0)
+                .radius(14.0)
+                .center()
+                .fill(rune::Color::TRANSPARENT)
+                .child(icon(&icons::NEW_PLAYLIST, 16.0).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.playlist_picker_track = Some(track_add_clone.clone());
+                    s.show_playlist_picker = true;
+                });
+
+            let song_right = row()
+                .center_y()
+                .gap(8.0)
+                .child(
+                    text(&track.duration_text)
+                        .font(typo::MONO_TIMER)
+                        .color(t.muted),
+                )
+                .child(add_btn);
+
             let row_item = row()
                 .key(format!("artist-song-{}", idx))
                 .w_full()
@@ -155,11 +178,7 @@ pub fn render(s: &AppState) -> El {
                                 .child(text(&track.album).font(typo::CAPTION).color(t.muted)),
                         ),
                 )
-                .child(
-                    text(&track.duration_text)
-                        .font(typo::MONO_TIMER)
-                        .color(t.muted),
-                )
+                .child(song_right)
                 .on_press(move |s: &mut AppState| {
                     s.queue = queue_clone.clone();
                     s.queue_index = idx;

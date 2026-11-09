@@ -152,10 +152,29 @@ pub fn render(s: &AppState) -> El {
                     .child(el().w(3.0).h(4.0).radius(1.5).fill(t.muted))
             };
 
+            let np_add_btn = row()
+                .key("np-add-btn")
+                .h(38.0)
+                .radius(19.0)
+                .px(16.0)
+                .center_y()
+                .gap(8.0)
+                .fill(t.hover)
+                .border(1.0, t.border)
+                .child(icon(&icons::NEW_PLAYLIST, 18.0).color(t.heading))
+                .child(text("Add to Playlist").font(typo::LABEL).color(t.heading))
+                .on_press(|s: &mut AppState| {
+                    if let Some(track) = s.current_track.clone() {
+                        s.playlist_picker_track = Some(track);
+                        s.show_playlist_picker = true;
+                    }
+                });
+
             let actions_row = row()
                 .gap(12.0)
                 .center_y()
                 .child(np_like_btn)
+                .child(np_add_btn)
                 .child(np_visualizer);
 
             let speeds: [f32; 5] = [0.75, 1.0, 1.25, 1.5, 2.0];
