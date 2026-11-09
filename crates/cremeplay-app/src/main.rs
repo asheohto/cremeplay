@@ -1,6 +1,7 @@
 mod agent_server;
 mod components;
 pub mod icons;
+mod media_keys;
 mod state;
 mod theme;
 
@@ -459,7 +460,8 @@ fn main() {
 
     let app = rune::App::new(spec);
     let handle = app.handle();
-    agent_server::start(handle);
+    agent_server::start(handle.clone());
+    media_keys::start(handle);
 
     app.run();
 }
