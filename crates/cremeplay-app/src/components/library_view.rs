@@ -103,19 +103,20 @@ pub fn render(s: &AppState) -> El {
                 .radius(24.0)
                 .fill(rune::Color::WHITE)
                 .center()
-                .child(icon(&icons::PLAY, 22.0).color(t.brand)),
+                .child(icon(&icons::PLAY, 22.0).color(t.brand))
+                .on_press(|s: &mut AppState| {
+                    if !s.liked_tracks.is_empty() {
+                        s.queue = s.liked_tracks.clone();
+                        s.queue_index = 0;
+                        let track = s.liked_tracks[0].clone();
+                        s.play_track(track);
+                    } else {
+                        s.open_liked_music();
+                    }
+                }),
         )
         .on_press(|s: &mut AppState| {
-            if s.account.is_some() {
-                s.load_playlist("LM");
-            } else if !s.liked_tracks.is_empty() {
-                s.queue = s.liked_tracks.clone();
-                s.queue_index = 0;
-                let track = s.liked_tracks[0].clone();
-                s.play_track(track);
-            } else {
-                s.load_playlist("LM");
-            }
+            s.open_liked_music();
         });
 
     content = content.child(liked_hero);
@@ -124,6 +125,25 @@ pub fn render(s: &AppState) -> El {
         let mut liked_list = col().w_full().gap(6.0);
         for (idx, trk) in s.liked_tracks.iter().enumerate() {
             let item = trk.clone();
+            let track_add = trk.clone();
+            let add_btn = el()
+                .key(format!("lib-liked-add-{}", idx))
+                .size(28.0, 28.0)
+                .radius(14.0)
+                .fill(rune::Color::TRANSPARENT)
+                .center()
+                .child(icon(&icons::NEW_PLAYLIST, 16.0).color(t.muted))
+                .on_press(move |s: &mut AppState| {
+                    s.playlist_picker_track = Some(track_add.clone());
+                    s.show_playlist_picker = true;
+                });
+
+            let right_side = row()
+                .center_y()
+                .gap(8.0)
+                .child(text(&trk.duration_text).font(typo::CAPTION).color(t.muted))
+                .child(add_btn);
+
             let row_item = row()
                 .key(format!("lib-liked-song-{}", idx))
                 .w_full()
@@ -152,7 +172,7 @@ pub fn render(s: &AppState) -> El {
                                 .child(text(&trk.artist).font(typo::CAPTION).color(t.muted)),
                         ),
                 )
-                .child(text(&trk.duration_text).font(typo::CAPTION).color(t.muted))
+                .child(right_side)
                 .on_press(move |s: &mut AppState| {
                     s.play_track(item.clone());
                 });

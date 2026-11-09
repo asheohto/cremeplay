@@ -83,6 +83,9 @@ pub fn render(s: &AppState) -> El {
         .child(text("Liked Music").font(typo::LABEL).color(t.heading))
         .child(text("Auto playlist").font(typo::CAPTION).color(t.muted));
 
+    let is_liked_active = s.active_view == ActiveView::PlaylistDetail
+        && s.current_playlist.as_ref().map(|p| p.browse_id == "LM").unwrap_or(false);
+
     let pinned_liked = row()
         .key("side-pinned-liked")
         .w_full()
@@ -91,11 +94,11 @@ pub fn render(s: &AppState) -> El {
         .px(10.0)
         .center_y()
         .gap(12.0)
-        .fill(if s.active_view == ActiveView::Library { t.hover } else { rune::Color::TRANSPARENT })
+        .fill(if is_liked_active { t.band } else { rune::Color::TRANSPARENT })
         .child(liked_thumb)
         .child(liked_info)
         .on_press(|s: &mut AppState| {
-            s.navigate_to(ActiveView::Library);
+            s.open_liked_music();
         });
 
     let mut sidebar_col = col()

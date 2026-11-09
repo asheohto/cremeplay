@@ -459,6 +459,30 @@ impl AppState {
         }
     }
 
+    pub fn open_liked_music(&mut self) {
+        if self.account.is_some() {
+            self.load_playlist("LM");
+        } else {
+            let artwork = self
+                .liked_tracks
+                .first()
+                .map(|t| t.artwork_url.clone())
+                .unwrap_or_default();
+            let detail = PlaylistDetail {
+                browse_id: "LM".to_string(),
+                title: "Liked Music".to_string(),
+                description: "Your favorited tracks".to_string(),
+                subtitle: "Auto playlist".to_string(),
+                artwork_url: artwork,
+                track_count: self.liked_tracks.len(),
+                tracks: self.liked_tracks.clone(),
+            };
+            self.current_playlist = Some(detail);
+            self.is_loading_playlist = false;
+            self.navigate_to(ActiveView::PlaylistDetail);
+        }
+    }
+
     pub fn load_artist(&mut self, browse_id: &str) {
         self.is_loading_artist = true;
         self.current_artist = None;
