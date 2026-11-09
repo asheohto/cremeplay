@@ -49,7 +49,7 @@ pub fn render(s: &AppState) -> El {
         .font(typo::BODY)
         .color(t.muted);
 
-    // Play All Button
+    // Play All & Delete Buttons
     let pl_tracks_clone = pl.tracks.clone();
     let first_track = pl.tracks.first().cloned();
     let play_all_btn = row()
@@ -70,6 +70,34 @@ pub fn render(s: &AppState) -> El {
             }
         });
 
+    let is_custom = pl.browse_id.starts_with("cp-pl-");
+    let delete_btn = if is_custom {
+        let pl_id = pl.browse_id.clone();
+        Some(
+            row()
+                .key("btn-delete-pl")
+                .h(40.0)
+                .px(16.0)
+                .radius(20.0)
+                .fill(t.hover)
+                .border(1.0, t.border)
+                .center_y()
+                .gap(8.0)
+                .child(icon(&icons::CLOSE, 16.0).color(t.muted))
+                .child(text("Delete Playlist").font(typo::LABEL).color(t.heading))
+                .on_press(move |s: &mut AppState| {
+                    s.delete_custom_playlist(&pl_id);
+                }),
+        )
+    } else {
+        None
+    };
+
+    let mut actions = row().gap(12.0).center_y().child(play_all_btn);
+    if let Some(del) = delete_btn {
+        actions = actions.child(del);
+    }
+
     let header_banner = row()
         .w_full()
         .gap(24.0)
@@ -80,7 +108,7 @@ pub fn render(s: &AppState) -> El {
                 .gap(8.0)
                 .child(title_text)
                 .child(meta_text)
-                .child(play_all_btn),
+                .child(actions),
         );
 
     // 2. Track List
@@ -119,6 +147,37 @@ pub fn render(s: &AppState) -> El {
         let total_sec = track.duration as u64;
         let dur_str = format!("{}:{:02}", total_sec / 60, total_sec % 60);
 
+        let remove_btn = if is_custom {
+            let pl_id = pl.browse_id.clone();
+            let vid = track.video_id.clone();
+            Some(
+                el()
+                    .key(format!("btn-rem-track-{}", idx))
+                    .size(28.0, 28.0)
+                    .radius(14.0)
+                    .center()
+                    .fill(t.hover)
+                    .child(icon(&icons::CLOSE, 12.0).color(t.muted))
+                    .on_press(move |s: &mut AppState| {
+                        s.remove_track_from_custom_playlist(&pl_id, &vid);
+                    }),
+            )
+        } else {
+            None
+        };
+
+        let right_side = if let Some(btn) = remove_btn {
+            row()
+                .center_y()
+                .gap(12.0)
+                .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
+                .child(btn)
+        } else {
+            row()
+                .center_y()
+                .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
+        };
+
         let track_row = row()
             .key(format!("pl-track-{}", idx))
             .w_full()
@@ -141,7 +200,7 @@ pub fn render(s: &AppState) -> El {
                             .child(text(&track.artist).font(typo::CAPTION).color(t.muted)),
                     ),
             )
-            .child(text(dur_str).font(typo::MONO_TIMER).color(t.muted))
+            .child(right_side)
             .on_press(move |s: &mut AppState| {
                 s.queue = queue_clone.clone();
                 s.queue_index = idx;

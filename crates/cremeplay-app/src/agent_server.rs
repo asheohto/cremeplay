@@ -54,6 +54,7 @@ pub struct AppStatusDto {
     pub audio_output_device: Option<String>,
     pub audio_devices: Vec<String>,
     pub playback_speed: f32,
+    pub custom_playlists_count: usize,
 }
 
 #[derive(Deserialize, Debug)]
@@ -78,6 +79,9 @@ pub enum AgentAction {
     ToggleSleepTimerMenu,
     SleepTimer { mins: Option<u32>, end_of_track: Option<bool> },
     SetAudioOutputDevice { device: Option<String> },
+    CreateCustomPlaylist { title: String },
+    DeleteCustomPlaylist { id: String },
+    AddToCustomPlaylist { playlist_id: String, track: TrackItem },
     LoadArtist { id: String },
     LoadPlaylist { id: String },
     PlayTrack { track: TrackItem },
@@ -279,6 +283,7 @@ async fn handle_request(
                     audio_output_device: s.player.get_output_device(),
                     audio_devices: s.audio_devices.clone(),
                     playback_speed: s.playback_speed,
+                    custom_playlists_count: s.custom_playlists.len(),
                 };
                 let _ = tx.send(dto);
             });
@@ -540,6 +545,18 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::SetAudioOutputDevice { device } => {
             s.set_audio_output_device(device.clone());
             format!(r#"{{"status":"ok","action":"set_audio_output_device","device":{:?}}}"#, device)
+        }
+        AgentAction::CreateCustomPlaylist { title } => {
+            let id = s.create_custom_playlist(title);
+            format!(r#"{{"status":"ok","action":"create_custom_playlist","id":"{}"}}"#, id)
+        }
+        AgentAction::DeleteCustomPlaylist { id } => {
+            s.delete_custom_playlist(&id);
+            format!(r#"{{"status":"ok","action":"delete_custom_playlist","id":"{}"}}"#, id)
+        }
+        AgentAction::AddToCustomPlaylist { playlist_id, track } => {
+            s.add_track_to_custom_playlist(&playlist_id, track);
+            format!(r#"{{"status":"ok","action":"add_to_custom_playlist","playlist_id":"{}"}}"#, playlist_id)
         }
     }
 }

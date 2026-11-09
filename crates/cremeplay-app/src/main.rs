@@ -372,6 +372,7 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         audio_output_device: s.player.get_output_device(),
         audio_devices: s.audio_devices.clone(),
         playback_speed: s.playback_speed,
+        custom_playlists_count: s.custom_playlists.len(),
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

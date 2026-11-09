@@ -5,6 +5,17 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CustomPlaylist {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub cover_url: Option<String>,
+    #[serde(default)]
+    pub tracks: Vec<crate::innertube::TrackItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub adblock: bool,
     pub sponsorblock: bool,
@@ -45,6 +56,8 @@ pub struct AppConfig {
     pub custom_lyrics: std::collections::HashMap<String, String>,
     #[serde(default)]
     pub song_offsets: std::collections::HashMap<String, i32>,
+    #[serde(default)]
+    pub custom_playlists: Vec<CustomPlaylist>,
     #[serde(default = "default_true")]
     pub check_updates: bool,
     #[serde(default)]
@@ -110,6 +123,7 @@ impl Default for AppConfig {
             liked_tracks: Vec::new(),
             custom_lyrics: std::collections::HashMap::new(),
             song_offsets: std::collections::HashMap::new(),
+            custom_playlists: Vec::new(),
             check_updates: true,
             dismissed_update: None,
         }

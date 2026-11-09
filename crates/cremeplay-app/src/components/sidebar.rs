@@ -65,8 +65,9 @@ pub fn render(s: &AppState) -> El {
         .fill(t.hover)
         .child(icon(&icons::NEW_PLAYLIST, 18.0).color(t.heading))
         .child(text("New playlist").font(typo::LABEL).color(t.heading))
-        .on_press(|_: &mut AppState| {
-            // New playlist handler
+        .on_press(|s: &mut AppState| {
+            let id = s.create_custom_playlist(String::new());
+            s.open_custom_playlist(&id);
         });
 
     // Pinned Liked Music
@@ -111,6 +112,46 @@ pub fn render(s: &AppState) -> El {
         .child(divider)
         .child(new_pl_btn)
         .child(pinned_liked);
+
+    // Render custom user playlists
+    if !s.custom_playlists.is_empty() {
+        let mut custom_pl_col = col().w_full().gap(4.0);
+        for pl in &s.custom_playlists {
+            let pl_id = pl.id.clone();
+            let is_active = s.current_playlist.as_ref().map(|p| p.browse_id == pl_id).unwrap_or(false)
+                && s.active_view == ActiveView::PlaylistDetail;
+
+            let pl_icon = el()
+                .size(34.0, 34.0)
+                .radius(8.0)
+                .fill(if is_active { t.brand } else { t.band })
+                .center()
+                .child(icon(&icons::QUEUE, 18.0).color(if is_active { t.brand_text } else { t.muted }));
+
+            let pl_meta = col()
+                .gap(2.0)
+                .child(text(&pl.title).font(typo::LABEL).color(if is_active { t.brand } else { t.heading }))
+                .child(text(format!("{} songs", pl.tracks.len())).font(typo::CAPTION).color(t.muted));
+
+            let pl_row = row()
+                .key(format!("side-custom-pl-{}", pl.id))
+                .w_full()
+                .h(48.0)
+                .radius(10.0)
+                .px(10.0)
+                .center_y()
+                .gap(12.0)
+                .fill(if is_active { t.hover } else { rune::Color::TRANSPARENT })
+                .child(pl_icon)
+                .child(pl_meta)
+                .on_press(move |s: &mut AppState| {
+                    s.open_custom_playlist(&pl_id);
+                });
+
+            custom_pl_col = custom_pl_col.child(pl_row);
+        }
+        sidebar_col = sidebar_col.child(custom_pl_col);
+    }
 
     // Render loaded playlists
     if !s.sidebar_playlists.is_empty() {

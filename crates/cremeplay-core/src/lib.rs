@@ -9,7 +9,7 @@ pub mod tuna;
 pub mod updater;
 
 pub use audio_player::{AudioPlayer, PlayerStatus};
-pub use config::{AppConfig, ConfigManager};
+pub use config::{AppConfig, ConfigManager, CustomPlaylist};
 pub use discord::DiscordManager;
 pub use innertube::{InnertubeClient, TrackItem, HomeSection, SearchResultPayload, PlaylistDetail, SidebarPlaylist};
 pub use lrclib::{LrclibClient, LyricsPayload};

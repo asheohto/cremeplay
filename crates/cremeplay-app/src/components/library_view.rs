@@ -171,56 +171,91 @@ pub fn render(s: &AppState) -> El {
     let pl_heading = text("Playlists & Albums").font(typo::TITLE).color(t.heading);
     content = content.child(pl_heading);
 
-    if s.sidebar_playlists.is_empty() {
-        let empty_box = col()
-            .w_full()
-            .h(220.0)
-            .center()
-            .gap(12.0)
-            .child(icon(&icons::QUEUE, 44.0).color(t.muted))
-            .child(text("No playlists saved yet").font(typo::TITLE).color(t.heading))
-            .child(
-                text("Connect your YouTube Music account in Settings to sync your personal playlists")
-                    .font(typo::BODY)
-                    .color(t.muted),
-            );
+    let mut pl_grid = row()
+        .key("lib-playlists-grid")
+        .w_full()
+        .gap(16.0);
 
-        content = content.child(empty_box);
-    } else {
-        let mut pl_grid = row()
-            .key("lib-playlists-grid")
-            .w_full()
-            .gap(16.0);
-
-        for (idx, pl) in s.sidebar_playlists.iter().enumerate() {
-            let pl_thumb = el()
+    // "Create Playlist" card
+    let create_card = col()
+        .key("lib-create-pl-card")
+        .w(160.0)
+        .padding(8.0)
+        .radius(16.0)
+        .fill(t.hover)
+        .border(1.0, t.border)
+        .gap(6.0)
+        .child(
+            el()
                 .size(144.0, 144.0)
                 .radius(12.0)
                 .fill(t.band)
                 .center()
-                .child(icon(&icons::QUEUE, 36.0).color(t.muted));
+                .child(icon(&icons::NEW_PLAYLIST, 36.0).color(t.brand)),
+        )
+        .child(text("New Playlist").font(typo::LABEL).color(t.heading))
+        .child(text("Create custom").font(typo::CAPTION).color(t.muted))
+        .on_press(|s: &mut AppState| {
+            let id = s.create_custom_playlist(String::new());
+            s.open_custom_playlist(&id);
+        });
+    pl_grid = pl_grid.child(create_card);
 
-            let pl_id = pl.browse_id.clone();
-            let card = col()
-                .key(format!("lib-pl-card-{}", idx))
-                .w(160.0)
-                .padding(8.0)
-                .radius(16.0)
-                .fill(t.panel)
-                .border(1.0, t.border)
-                .gap(6.0)
-                .child(pl_thumb)
-                .child(text(&pl.title).font(typo::LABEL).color(t.heading))
-                .child(text("Playlist").font(typo::CAPTION).color(t.muted))
-                .on_press(move |s: &mut AppState| {
-                    s.load_playlist(&pl_id);
-                });
+    for (idx, pl) in s.custom_playlists.iter().enumerate() {
+        let pl_thumb = el()
+            .size(144.0, 144.0)
+            .radius(12.0)
+            .fill(t.band)
+            .center()
+            .child(icon(&icons::QUEUE, 36.0).color(t.brand));
 
-            pl_grid = pl_grid.child(card);
-        }
+        let pl_id = pl.id.clone();
+        let card = col()
+            .key(format!("lib-custom-pl-card-{}", idx))
+            .w(160.0)
+            .padding(8.0)
+            .radius(16.0)
+            .fill(t.panel)
+            .border(1.0, t.border)
+            .gap(6.0)
+            .child(pl_thumb)
+            .child(text(&pl.title).font(typo::LABEL).color(t.heading))
+            .child(text(format!("{} songs", pl.tracks.len())).font(typo::CAPTION).color(t.muted))
+            .on_press(move |s: &mut AppState| {
+                s.open_custom_playlist(&pl_id);
+            });
 
-        content = content.child(pl_grid);
+        pl_grid = pl_grid.child(card);
     }
+
+    for (idx, pl) in s.sidebar_playlists.iter().enumerate() {
+        let pl_thumb = el()
+            .size(144.0, 144.0)
+            .radius(12.0)
+            .fill(t.band)
+            .center()
+            .child(icon(&icons::QUEUE, 36.0).color(t.muted));
+
+        let pl_id = pl.browse_id.clone();
+        let card = col()
+            .key(format!("lib-pl-card-{}", idx))
+            .w(160.0)
+            .padding(8.0)
+            .radius(16.0)
+            .fill(t.panel)
+            .border(1.0, t.border)
+            .gap(6.0)
+            .child(pl_thumb)
+            .child(text(&pl.title).font(typo::LABEL).color(t.heading))
+            .child(text("Playlist").font(typo::CAPTION).color(t.muted))
+            .on_press(move |s: &mut AppState| {
+                s.load_playlist(&pl_id);
+            });
+
+        pl_grid = pl_grid.child(card);
+    }
+
+    content = content.child(pl_grid);
 
     content
 }

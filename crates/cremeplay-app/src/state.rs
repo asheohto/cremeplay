@@ -2,7 +2,7 @@ use crate::theme::Theme;
 use cremeplay_core::{
     innertube::{AccountProfile, ArtistDetail, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload, SidebarPlaylist, TrackItem},
     lrclib::{LrclibClient, LyricsPayload},
-    AudioPlayer, ConfigManager, DiscordManager, SponsorBlockClient, TunaManager,
+    AudioPlayer, ConfigManager, CustomPlaylist, DiscordManager, SponsorBlockClient, TunaManager,
 };
 use rune::{Image, ImageCache, TextEdit, Waker};
 use std::collections::{HashMap, HashSet};
@@ -103,6 +103,7 @@ pub struct AppState {
     pub is_loading_explore: bool,
     pub sidebar_playlists: Vec<SidebarPlaylist>,
     pub liked_tracks: Vec<TrackItem>,
+    pub custom_playlists: Vec<CustomPlaylist>,
     pub account: Option<AccountProfile>,
 
     // Thread-safe async buffers
@@ -232,6 +233,7 @@ impl AppState {
             is_loading_explore: true,
             sidebar_playlists: Vec::new(),
             liked_tracks: cfg.liked_tracks.clone(),
+            custom_playlists: cfg.custom_playlists.clone(),
             account: if let Some(name) = &cfg.user_name {
                 Some(AccountProfile {
                     name: name.clone(),
@@ -357,6 +359,100 @@ impl AppState {
     pub fn set_playback_speed(&mut self, speed: f32) {
         self.playback_speed = speed;
         self.player.set_speed(speed);
+    }
+
+    pub fn create_custom_playlist(&mut self, title: String) -> String {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let id = format!("cp-pl-{}", now_ms);
+        let count = self.custom_playlists.len() + 1;
+        let final_title = if title.trim().is_empty() {
+            format!("Playlist #{}", count)
+        } else {
+            title.trim().to_string()
+        };
+        let pl = CustomPlaylist {
+            id: id.clone(),
+            title: final_title,
+            description: None,
+            cover_url: None,
+            tracks: Vec::new(),
+        };
+        self.custom_playlists.push(pl);
+        let mut cfg = self.config_mgr.get();
+        cfg.custom_playlists = self.custom_playlists.clone();
+        self.config_mgr.save(cfg);
+        id
+    }
+
+    pub fn delete_custom_playlist(&mut self, id: &str) {
+        self.custom_playlists.retain(|p| p.id != id);
+        let mut cfg = self.config_mgr.get();
+        cfg.custom_playlists = self.custom_playlists.clone();
+        self.config_mgr.save(cfg);
+        if let Some(current) = &self.current_playlist {
+            if current.browse_id == id {
+                self.current_playlist = None;
+                self.navigate_to(ActiveView::Library);
+            }
+        }
+    }
+
+    pub fn add_track_to_custom_playlist(&mut self, id: &str, track: TrackItem) {
+        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id) {
+            if !pl.tracks.iter().any(|t| t.video_id == track.video_id) {
+                pl.tracks.push(track);
+                let mut cfg = self.config_mgr.get();
+                cfg.custom_playlists = self.custom_playlists.clone();
+                self.config_mgr.save(cfg);
+            }
+        }
+        if let Some(current) = &mut self.current_playlist {
+            if current.browse_id == id {
+                if let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id) {
+                    current.tracks = pl.tracks.clone();
+                    current.track_count = current.tracks.len();
+                }
+            }
+        }
+    }
+
+    pub fn remove_track_from_custom_playlist(&mut self, id: &str, video_id: &str) {
+        if let Some(pl) = self.custom_playlists.iter_mut().find(|p| p.id == id) {
+            pl.tracks.retain(|t| t.video_id != video_id);
+            let mut cfg = self.config_mgr.get();
+            cfg.custom_playlists = self.custom_playlists.clone();
+            self.config_mgr.save(cfg);
+        }
+        if let Some(current) = &mut self.current_playlist {
+            if current.browse_id == id {
+                current.tracks.retain(|t| t.video_id != video_id);
+                current.track_count = current.tracks.len();
+            }
+        }
+    }
+
+    pub fn open_custom_playlist(&mut self, id: &str) {
+        if let Some(pl) = self.custom_playlists.iter().find(|p| p.id == id).cloned() {
+            let artwork = pl
+                .cover_url
+                .or_else(|| pl.tracks.first().map(|t| t.artwork_url.clone()))
+                .unwrap_or_default();
+            let detail = PlaylistDetail {
+                browse_id: pl.id,
+                title: pl.title,
+                description: pl.description.unwrap_or_default(),
+                subtitle: "Custom Playlist".to_string(),
+                artwork_url: artwork,
+                track_count: pl.tracks.len(),
+                tracks: pl.tracks,
+            };
+            self.current_playlist = Some(detail);
+            self.is_loading_playlist = false;
+            self.navigate_to(ActiveView::PlaylistDetail);
+        }
     }
 
     pub fn load_artist(&mut self, browse_id: &str) {
