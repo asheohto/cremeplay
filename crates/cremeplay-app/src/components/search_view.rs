@@ -19,6 +19,54 @@ pub fn render(s: &AppState) -> El {
     let results = match &s.search_results {
         Some(r) => r,
         None => {
+            let recent = s.config_mgr.get().recent_searches;
+            let recent_section = if !recent.is_empty() {
+                let mut recent_row = row().gap(8.0).center_y();
+                for q in &recent {
+                    let q_str = q.clone();
+                    recent_row = recent_row.child(
+                        row()
+                            .h(32.0)
+                            .px(14.0)
+                            .radius(16.0)
+                            .center()
+                            .fill(t.band)
+                            .border(1.0, t.border)
+                            .child(text(q).font(typo::CAPTION).color(t.brand_text))
+                            .on_press(move |s: &mut AppState| {
+                                s.trigger_search(q_str.clone());
+                            }),
+                    );
+                }
+
+                let clear_btn = el()
+                    .key("clear-recent-searches")
+                    .h(24.0)
+                    .px(8.0)
+                    .radius(4.0)
+                    .fill(t.hover)
+                    .center()
+                    .child(text("Clear").font(typo::CAPTION).color(t.muted))
+                    .on_press(|s: &mut AppState| {
+                        s.clear_recent_searches();
+                    });
+
+                Some(
+                    col()
+                        .gap(10.0)
+                        .child(
+                            row()
+                                .gap(12.0)
+                                .center_y()
+                                .child(text("Recent Searches").font(typo::LABEL).color(t.heading))
+                                .child(clear_btn),
+                        )
+                        .child(recent_row),
+                )
+            } else {
+                None
+            };
+
             let chips = ["Trending Songs", "Lofi Beats", "Chill Acoustic", "Synthwave", "City Pop", "Anime OST", "Classical Focus"];
             let mut chip_row = row().gap(8.0);
             for chip in chips {
@@ -38,15 +86,23 @@ pub fn render(s: &AppState) -> El {
                 );
             }
 
-            return col()
+            let mut landing = col()
                 .w_full()
                 .h_full()
                 .center()
                 .gap(18.0)
                 .child(icon(&icons::SEARCH, 48.0).color(t.brand))
-                .child(text("Search songs, artists, or albums").font(typo::TITLE).color(t.heading))
-                .child(text("Type in the search bar above or pick a mood:").font(typo::BODY).color(t.muted))
+                .child(text("Search songs, artists, or albums").font(typo::TITLE).color(t.heading));
+
+            if let Some(sec) = recent_section {
+                landing = landing.child(sec);
+            }
+
+            landing = landing
+                .child(text("Or pick a trending mood:").font(typo::BODY).color(t.muted))
                 .child(chip_row);
+
+            return landing;
         }
     };
 

@@ -826,27 +826,44 @@ impl AppState {
     }
 
     pub fn trigger_search(&mut self, query: String) {
-        if query.trim().is_empty() {
+        let q = query.trim().to_string();
+        if q.is_empty() {
             return;
         }
-        self.search_query = query.clone();
+        self.search_query = q.clone();
+        self.search_edit.text = q.clone();
         self.search_suggestions.clear();
-        self.last_suggestion_query = query.clone();
+        self.last_suggestion_query = q.clone();
         self.is_searching = true;
         self.navigate_to(ActiveView::Search);
+
+        // Record in recent searches (deduplicated, max 8)
+        let mut cfg = self.config_mgr.get();
+        cfg.recent_searches.retain(|s| !s.eq_ignore_ascii_case(&q));
+        cfg.recent_searches.insert(0, q.clone());
+        if cfg.recent_searches.len() > 8 {
+            cfg.recent_searches.truncate(8);
+        }
+        self.config_mgr.save(cfg);
 
         let innertube = self.innertube.clone();
         let pending = self.pending_search_results.clone();
         let waker_arc = self.waker.clone();
 
         tokio::spawn(async move {
-            if let Ok(results) = innertube.search(&query).await {
+            if let Ok(results) = innertube.search(&q).await {
                 *pending.lock().unwrap() = Some(results);
                 if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
                     waker();
                 }
             }
         });
+    }
+
+    pub fn clear_recent_searches(&mut self) {
+        let mut cfg = self.config_mgr.get();
+        cfg.recent_searches.clear();
+        self.config_mgr.save(cfg);
     }
 
     pub fn update_search_suggestions(&mut self) {

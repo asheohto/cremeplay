@@ -62,6 +62,8 @@ pub struct AppConfig {
     pub check_updates: bool,
     #[serde(default)]
     pub dismissed_update: Option<String>,
+    #[serde(default)]
+    pub recent_searches: Vec<String>,
 }
 
 fn default_theme() -> String {
@@ -126,6 +128,7 @@ impl Default for AppConfig {
             custom_playlists: Vec::new(),
             check_updates: true,
             dismissed_update: None,
+            recent_searches: Vec::new(),
         }
     }
 }
