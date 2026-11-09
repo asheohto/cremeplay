@@ -526,7 +526,9 @@ fn on_key(s: &mut AppState, ev: &KeyEvent, tx: &mut Tx) -> bool {
 fn start_memory_trimmer() {
     tokio::spawn(async {
         use std::os::raw::c_void;
+        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
         type HANDLE = *mut c_void;
+        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
         type BOOL = i32;
 
         #[link(name = "kernel32")]
