@@ -124,13 +124,55 @@ pub fn render(s: &AppState) -> El {
             let is_active = s.current_playlist.as_ref().map(|p| p.browse_id == pl_id).unwrap_or(false)
                 && s.active_view == ActiveView::PlaylistDetail;
 
-            let cover_url = pl
-                .cover_url
-                .as_deref()
-                .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
-
-            let pl_icon = if let Some(url) = cover_url
-                && let Some(img) = s.get_image(url) {
+            let pl_icon = if pl.tracks.len() >= 4 {
+                let mut imgs = Vec::new();
+                for trk in pl.tracks.iter().take(4) {
+                    if let Some(img) = s.get_image(&trk.artwork_url) {
+                        imgs.push(img);
+                    }
+                }
+                if imgs.len() == 4 {
+                    col()
+                        .size(34.0, 34.0)
+                        .radius(8.0)
+                        .clip_rounded(8.0)
+                        .child(
+                            row()
+                                .size(34.0, 17.0)
+                                .child(el().size(17.0, 17.0).pixels_fit(imgs[0].pixels(), rune::SurfaceFit::Fill))
+                                .child(el().size(17.0, 17.0).pixels_fit(imgs[1].pixels(), rune::SurfaceFit::Fill))
+                        )
+                        .child(
+                            row()
+                                .size(34.0, 17.0)
+                                .child(el().size(17.0, 17.0).pixels_fit(imgs[2].pixels(), rune::SurfaceFit::Fill))
+                                .child(el().size(17.0, 17.0).pixels_fit(imgs[3].pixels(), rune::SurfaceFit::Fill))
+                        )
+                } else {
+                    let cover_url = pl
+                        .cover_url
+                        .as_deref()
+                        .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+                    if let Some(url) = cover_url && let Some(img) = s.get_image(url) {
+                        el()
+                            .size(34.0, 34.0)
+                            .radius(8.0)
+                            .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+                    } else {
+                        el()
+                            .size(34.0, 34.0)
+                            .radius(8.0)
+                            .fill(if is_active { t.brand } else { t.band })
+                            .center()
+                            .child(icon(&icons::QUEUE, 18.0).color(if is_active { t.brand_text } else { t.muted }))
+                    }
+                }
+            } else {
+                let cover_url = pl
+                    .cover_url
+                    .as_deref()
+                    .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+                if let Some(url) = cover_url && let Some(img) = s.get_image(url) {
                     el()
                         .size(34.0, 34.0)
                         .radius(8.0)
@@ -142,7 +184,8 @@ pub fn render(s: &AppState) -> El {
                         .fill(if is_active { t.brand } else { t.band })
                         .center()
                         .child(icon(&icons::QUEUE, 18.0).color(if is_active { t.brand_text } else { t.muted }))
-                };
+                }
+            };
 
             let pl_meta = col()
                 .gap(2.0)

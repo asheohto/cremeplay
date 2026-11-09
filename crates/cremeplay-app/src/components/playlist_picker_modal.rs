@@ -92,19 +92,44 @@ pub fn render(s: &AppState) -> El {
                     .color(t.muted)
             };
 
+            let cover_url = pl
+                .cover_url
+                .as_deref()
+                .or_else(|| pl.tracks.first().map(|t| t.artwork_url.as_str()));
+            let pl_thumb = if let Some(url) = cover_url
+                && let Some(img) = s.get_image(url) {
+                    el()
+                        .size(28.0, 28.0)
+                        .radius(6.0)
+                        .pixels_fit(img.pixels(), rune::SurfaceFit::Fill)
+                } else {
+                    el()
+                        .size(28.0, 28.0)
+                        .radius(6.0)
+                        .fill(t.band)
+                        .center()
+                        .child(icon(&icons::QUEUE, 14.0).color(if is_already_added { t.brand } else { t.muted }))
+                };
+
             let row_item = row()
                 .key(format!("pick-pl-{}", pl.id))
                 .w_full()
                 .h(44.0)
-                .px(12.0)
+                .px(10.0)
                 .radius(8.0)
                 .justify_between()
                 .center_y()
                 .fill(t.hover)
                 .child(
-                    text(&pl.title)
-                        .font(typo::LABEL)
-                        .color(if is_already_added { t.brand } else { t.heading }),
+                    row()
+                        .center_y()
+                        .gap(10.0)
+                        .child(pl_thumb)
+                        .child(
+                            text(&pl.title)
+                                .font(typo::LABEL)
+                                .color(if is_already_added { t.brand } else { t.heading }),
+                        ),
                 )
                 .child(status_badge)
                 .on_press(move |s: &mut AppState| {
