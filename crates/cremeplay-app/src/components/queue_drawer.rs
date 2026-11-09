@@ -172,6 +172,19 @@ pub fn render(s: &AppState) -> El {
                         s.play_track(track_item.clone());
                     });
 
+                let track_add = item.clone();
+                let add_btn = el()
+                    .key(format!("queue-add-{}", idx))
+                    .size(24.0, 24.0)
+                    .radius(12.0)
+                    .fill(rune::Color::TRANSPARENT)
+                    .center()
+                    .child(icon(&icons::NEW_PLAYLIST, 14.0).color(t.muted))
+                    .on_press(move |s: &mut AppState| {
+                        s.playlist_picker_track = Some(track_add.clone());
+                        s.show_playlist_picker = true;
+                    });
+
                 let remove_btn = el()
                     .key(format!("queue-remove-{}", idx))
                     .size(24.0, 24.0)
@@ -188,6 +201,12 @@ pub fn render(s: &AppState) -> El {
                         }
                     });
 
+                let item_actions = row()
+                    .center_y()
+                    .gap(4.0)
+                    .child(add_btn)
+                    .child(remove_btn);
+
                 let queue_card = row()
                     .key(format!("queue-item-{}", idx))
                     .w_full()
@@ -199,7 +218,7 @@ pub fn render(s: &AppState) -> El {
                     .fill(bg)
                     .border(1.0, border_col)
                     .child(play_click)
-                    .child(remove_btn);
+                    .child(item_actions);
 
                 queue_list = queue_list.child(queue_card);
             }

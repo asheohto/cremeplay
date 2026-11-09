@@ -261,6 +261,41 @@ pub fn render(s: &AppState) -> El {
                     let border_col = if is_current { t.brand } else { rune::Color::TRANSPARENT };
                     let track_item = item.clone();
 
+                    let track_add = item.clone();
+                    let add_btn = el()
+                        .key(format!("np-queue-add-{}", idx))
+                        .size(28.0, 28.0)
+                        .radius(14.0)
+                        .fill(rune::Color::TRANSPARENT)
+                        .center()
+                        .child(icon(&icons::NEW_PLAYLIST, 16.0).color(t.muted))
+                        .on_press(move |s: &mut AppState| {
+                            s.playlist_picker_track = Some(track_add.clone());
+                            s.show_playlist_picker = true;
+                        });
+
+                    let remove_btn = el()
+                        .key(format!("np-queue-rem-{}", idx))
+                        .size(28.0, 28.0)
+                        .radius(14.0)
+                        .fill(t.hover)
+                        .center()
+                        .child(icon(&icons::CLOSE, 14.0).color(t.muted))
+                        .on_press(move |s: &mut AppState| {
+                            if idx < s.queue.len() {
+                                s.queue.remove(idx);
+                                if s.queue_index >= idx && s.queue_index > 0 {
+                                    s.queue_index -= 1;
+                                }
+                            }
+                        });
+
+                    let np_actions = row()
+                        .center_y()
+                        .gap(6.0)
+                        .child(add_btn)
+                        .child(remove_btn);
+
                     let card = row()
                         .key(format!("np-queue-item-{}", idx))
                         .w_full()
@@ -273,6 +308,7 @@ pub fn render(s: &AppState) -> El {
                         .border(1.0, border_col)
                         .child(
                             row()
+                                .grow(1.0)
                                 .center_y()
                                 .gap(12.0)
                                 .child(
@@ -288,12 +324,13 @@ pub fn render(s: &AppState) -> El {
                                         .gap(2.0)
                                         .child(text(&item.title).font(typo::LABEL).color(if is_current { t.brand_text } else { t.heading }))
                                         .child(text(&item.artist).font(typo::CAPTION).color(t.muted)),
-                                ),
+                                )
+                                .on_press(move |s: &mut AppState| {
+                                    s.queue_index = idx;
+                                    s.play_track(track_item.clone());
+                                }),
                         )
-                        .on_press(move |s: &mut AppState| {
-                            s.queue_index = idx;
-                            s.play_track(track_item.clone());
-                        });
+                        .child(np_actions);
 
                     queue_list = queue_list.child(card);
                 }
