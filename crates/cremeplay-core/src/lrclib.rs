@@ -894,5 +894,45 @@ mod tests {
         assert_eq!(parsed[1].time_sec, 5.50);
         assert_eq!(parsed[1].text, "♪");
     }
+
+    #[test]
+    fn test_parse_ttml() {
+        let ttml = r#"
+<tt xmlns="http://www.w3.org/ns/ttml">
+  <head>
+    <metadata>
+      <audio lyricOffset="0.25"/>
+    </metadata>
+  </head>
+  <body>
+    <div>
+      <p begin="00:01.000" end="00:04.000"><span>Hello</span> <span>world</span></p>
+      <p begin="00:05.500" end="00:08.000">Second line of lyrics</p>
+    </div>
+  </body>
+</tt>
+"#;
+        let parsed = parse_ttml(ttml);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].time_sec, 1.25);
+        assert_eq!(parsed[0].text, "Hello world");
+        assert_eq!(parsed[1].time_sec, 5.75);
+        assert_eq!(parsed[1].text, "Second line of lyrics");
+    }
+
+    #[test]
+    fn test_parse_custom_lyrics_synced_and_plain() {
+        let lrc = "[00:02.50]Synced lyric\n[00:06.00]Another synced line";
+        let parsed_lrc = parse_custom_lyrics(lrc);
+        assert_eq!(parsed_lrc.lines.len(), 2);
+        assert_eq!(parsed_lrc.lines[0].time_sec, 2.50);
+        assert_eq!(parsed_lrc.lines[0].text, "Synced lyric");
+
+        let plain = "Line 1\nLine 2\nLine 3";
+        let parsed_plain = parse_custom_lyrics(plain);
+        assert!(!parsed_plain.synced);
+        assert_eq!(parsed_plain.lines.len(), 0);
+        assert_eq!(parsed_plain.plain_lyrics, "Line 1\nLine 2\nLine 3");
+    }
 }
 
