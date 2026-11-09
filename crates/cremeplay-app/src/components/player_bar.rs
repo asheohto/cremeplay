@@ -20,7 +20,7 @@ pub fn render(s: &AppState) -> El {
         .fill(t.border)
         .child(
             el()
-                .w(progress * 1160.0)
+                .w_frac(progress)
                 .h(6.0)
                 .fill(t.brand),
         )
@@ -252,7 +252,7 @@ pub fn render(s: &AppState) -> El {
         .fill(t.border)
         .child(
             el()
-                .w(s.volume * 84.0)
+                .w_frac(s.volume)
                 .h(6.0)
                 .radius(3.0)
                 .fill(t.brand),
