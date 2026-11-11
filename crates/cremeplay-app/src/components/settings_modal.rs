@@ -61,38 +61,45 @@ pub fn render(s: &AppState) -> El {
     // Body based on active tab
     let body = match s.settings_tab {
         SettingsTab::General => {
-            // Theme selector grid
+            // Theme selector grid: 2 columns matching original Cremeplay .theme-grid
             let theme_header = text("Color Themes").font(typo::LABEL).color(t.heading);
-            let mut theme_grid = row().w_full().gap(8.0);
+            let mut theme_grid = col().w_full().gap(8.0);
+            let themes = all_themes();
 
-            for theme in all_themes().into_iter() {
-                let is_current = theme.id == s.theme.id;
-                let theme_id = theme.id;
-                let theme_card = col()
-                    .key(format!("theme-card-{}", theme.id))
-                    .w(80.0)
-                    .h(60.0)
-                    .radius(8.0)
-                    .fill(theme.surface)
-                    .border(if is_current { 2.0 } else { 1.0 }, if is_current { theme.brand } else { theme.border })
-                    .padding(6.0)
-                    .justify_between()
-                    .child(
-                        row()
-                            .gap(4.0)
-                            .child(el().size(12.0, 12.0).radius(6.0).fill(theme.brand))
-                            .child(el().size(12.0, 12.0).radius(6.0).fill(theme.panel)),
-                    )
-                    .child(
-                        text(theme.name)
-                            .font(typo::CAPTION)
-                            .color(theme.heading),
-                    )
-                    .on_press(move |s: &mut AppState| {
-                        s.set_theme(theme_id);
-                    });
+            for chunk in themes.chunks(2) {
+                let mut theme_row = row().w_full().gap(8.0);
+                for theme in chunk {
+                    let is_current = theme.id == s.theme.id;
+                    let theme_id = theme.id;
+                    let theme_card = row()
+                        .key(format!("theme-card-{}", theme.id))
+                        .grow(1.0)
+                        .h(42.0)
+                        .radius(12.0)
+                        .fill(if is_current { theme.band } else { theme.surface })
+                        .border(if is_current { 1.5 } else { 1.0 }, if is_current { theme.brand } else { theme.border })
+                        .px(12.0)
+                        .gap(10.0)
+                        .center_y()
+                        .child(
+                            row()
+                                .gap(4.0)
+                                .child(el().size(12.0, 12.0).radius(6.0).fill(theme.brand))
+                                .child(el().size(12.0, 12.0).radius(6.0).fill(theme.panel)),
+                        )
+                        .child(
+                            text(theme.name)
+                                .font(typo::LABEL)
+                                .color(theme.heading)
+                                .truncate(),
+                        )
+                        .on_press(move |s: &mut AppState| {
+                            s.set_theme(theme_id);
+                        });
 
-                theme_grid = theme_grid.child(theme_card);
+                    theme_row = theme_row.child(theme_card);
+                }
+                theme_grid = theme_grid.child(theme_row);
             }
 
             // Toggles
