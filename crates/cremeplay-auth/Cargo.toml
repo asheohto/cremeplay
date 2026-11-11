@@ -1,0 +1,20 @@
+[package]
+name = "cremeplay-auth"
+version = "0.1.0"
+edition = "2024"
+authors = ["asheohto"]
+license = "MIT"
+
+[[bin]]
+name = "cremeplay-auth"
+path = "src/main.rs"
+
+[dependencies]
+wry = "0.57"
+winit = "0.30"
+dpi = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+dirs = "6.0"
+log = "0.4"

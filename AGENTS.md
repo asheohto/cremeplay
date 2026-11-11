@@ -66,11 +66,23 @@ Cremeplay embeds an asynchronous HTTP agent server in `cremeplay-app` powered by
 * `GET /api/status`: Real-time player status, track metadata, queue length, active views, and modal flags.
 * `POST /api/action`: Control actions executed safely on the GUI UI thread (`play`, `pause`, `toggle`, `next`, `prev`, `seek`, `volume`, `search`, `view`, `toggle_drawer`, `toggle_now_playing`, `toggle_settings`).
 
-### B. Headless Rune Harness
-Rune supports deterministic CLI testing flags:
-* `cremeplay.exe --tree tree.json`: Dump full semantic UI layout and element hierarchy.
-* `cremeplay.exe --snap snap.png --at <seconds> [--crop <key>]`: Pixel-perfect GPU snapshot.
+### B. Headless Rune Harness & UI-to-PNG Testing
+Rune supports deterministic, zero-display headless GPU CLI flags:
+* `cremeplay.exe --snap snap.png --at <seconds> [--crop <key>]`: Pixel-perfect GPU snapshot rendered offscreen via WGPU at virtual timestamp `<seconds>`.
+* `cremeplay.exe --snap snap.png --scene <name>`: Render a specific named initial state:
+  * `collapsed`: 72px icon rail sidebar.
+  * `settings`: Settings modal opened (Theme, Audio, Account, Cache).
+  * `explore`: Moods, charts, and new release shelves.
+  * `search`: Search input bar and results grid.
+  * `library`: User's playlists and liked music.
+  * `now_playing`: Fullscreen vinyl/ambient lyrics display.
+* `cremeplay.exe --tree tree.json`: Dump full semantic UI layout and element hierarchy to JSON.
 * `cremeplay.exe --script script.json`: Automated headless user interaction replay (taps, drags, typing).
+
+### C. Transient Zero-Overhead Auth Architecture (`cremeplay-auth`)
+* `cremeplay-auth.exe`: Ephemeral, transient Webview login popup (`wry` + `winit`) that opens only during Google sign-in.
+* Automatically polls `cookies_for_url("https://music.youtube.com")`, extracts session keys (`SAPISID`, `__Secure-3PAPISID`), saves to `config.json`, dispatches to `cremeplay-app` via `POST http://127.0.0.1:9099/api/action`, and immediately terminates (`exit(0)`).
+* Leaves the primary Rune player process with **zero Chromium/WebView2 runtime overhead** during active playback.
 
 ---
 

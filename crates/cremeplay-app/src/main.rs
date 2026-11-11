@@ -224,6 +224,96 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         state_changed = true;
     }
 
+    // Drain OAuth code
+    if let Some((info, code)) = s.pending_oauth_code.lock().unwrap().take() {
+        s.oauth_code_info = Some(info.clone());
+        s.oauth_status_msg = Some("Waiting for you to authorize in your browser...".to_string());
+        s.oauth_copied = true;
+
+        let innertube = s.innertube.clone();
+        let pending_success = s.pending_oauth_success.clone();
+        let pending_err = s.pending_oauth_error.clone();
+        let cancel_flag = s.oauth_cancel_flag.clone();
+        let waker_arc = s.waker.clone();
+        let interval = (info.interval as u64).max(5);
+
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+                if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+
+                match innertube.check_oauth_login(&code).await {
+                    Ok(true) => {
+                        match innertube.get_oauth_access_token().await {
+                            Ok(token) => {
+                                let profile = innertube.get_profile_from_token(&token).await.unwrap_or(cremeplay_core::innertube::AccountProfile {
+                                    name: "Google Account".to_string(),
+                                    avatar_url: "".to_string(),
+                                    is_logged_in: true,
+                                });
+                                *pending_success.lock().unwrap() = Some((profile, token));
+                            }
+                            Err(e) => {
+                                *pending_err.lock().unwrap() = Some(format!("Token error: {}", e));
+                            }
+                        }
+                        if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                            waker();
+                        }
+                        break;
+                    }
+                    Ok(false) => {
+                        // Pending authorization, retry
+                    }
+                    Err(e) => {
+                        *pending_err.lock().unwrap() = Some(format!("Auth failed: {}", e));
+                        if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                            waker();
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+        state_changed = true;
+    }
+
+    // Drain OAuth success
+    if let Some((profile, _token)) = s.pending_oauth_success.lock().unwrap().take() {
+        s.is_polling_oauth = false;
+        s.oauth_code_info = None;
+        s.oauth_status_msg = Some(format!("Signed in as {}!", profile.name));
+        s.account = Some(profile.clone());
+
+        let mut cfg = s.config_mgr.get();
+        cfg.user_name = Some(profile.name.clone());
+        cfg.user_avatar = Some(profile.avatar_url.clone());
+        s.config_mgr.save(cfg.clone());
+
+        let innertube = s.innertube.clone();
+        let pending_home = s.pending_home_feed.clone();
+        let waker_arc = s.waker.clone();
+        tokio::spawn(async move {
+            if let Ok(sections) = innertube.get_home_feed(&cfg.taste_artists).await {
+                *pending_home.lock().unwrap() = Some(sections);
+            }
+            if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                waker();
+            }
+        });
+        state_changed = true;
+    }
+
+    // Drain OAuth error
+    if let Some(err) = s.pending_oauth_error.lock().unwrap().take() {
+        s.is_polling_oauth = false;
+        s.oauth_code_info = None;
+        s.oauth_status_msg = Some(err);
+        state_changed = true;
+    }
+
     // Drain async radio queue recommendations (Autoplay)
     let radio_tracks = s.pending_radio_queue.lock().unwrap().take();
     if let Some(tracks) = radio_tracks {
@@ -561,6 +651,16 @@ fn on_close(s: &mut AppState, tx: &mut Tx) {
     }
 }
 
+type SceneFn = fn(&mut AppState);
+static SCENES: &[(&str, SceneFn)] = &[
+    ("collapsed", |s| { s.sidebar_collapsed = true; }),
+    ("settings", |s| { s.show_settings = true; }),
+    ("explore", |s| { s.active_view = ActiveView::Explore; }),
+    ("search", |s| { s.active_view = ActiveView::Search; }),
+    ("library", |s| { s.active_view = ActiveView::Library; }),
+    ("now_playing", |s| { s.show_now_playing = true; }),
+];
+
 fn main() {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -575,6 +675,7 @@ fn main() {
     spec.setup = Some(setup);
     spec.poll = Some(poll);
     spec.on_key = Some(on_key);
+    spec.scenes = SCENES;
 
     let app = rune::App::new(spec)
         .keep_running()

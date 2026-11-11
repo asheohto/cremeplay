@@ -92,6 +92,12 @@ pub enum AgentAction {
     SelectLyricsSource { source: String },
     AdjustLyricsOffset { delta_ms: i32 },
     SaveCustomLyrics { lyrics: String },
+    ToggleSidebar,
+    SetCookies { cookies: String },
+    #[serde(alias = "start_oauth_login")]
+    StartOAuthLogin,
+    #[serde(alias = "cancel_oauth_login")]
+    CancelOAuthLogin,
     CheckForUpdates { manual: Option<bool> },
     DismissUpdate,
 }
@@ -227,6 +233,30 @@ async fn handle_request(
     }
 
     match (method, path) {
+        ("POST", "/api/login") => {
+            let cookie_str = if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(body) {
+                if let Some(c) = json_val.get("cookies").and_then(|v| v.as_str()) {
+                    c.to_string()
+                } else if let Some(c) = json_val.get("cookie").and_then(|v| v.as_str()) {
+                    c.to_string()
+                } else {
+                    body.to_string()
+                }
+            } else {
+                body.to_string()
+            };
+
+            let cookie_str = cookie_str.trim().to_string();
+            if cookie_str.is_empty() {
+                return ("400 Bad Request", r#"{"status":"error","error":"empty cookies"}"#.to_string());
+            }
+
+            h.update(move |s, _| {
+                s.set_cookies(cookie_str);
+            });
+
+            ("200 OK", r#"{"status":"ok","message":"Cookies received and applied"}"#.to_string())
+        }
         ("GET", "/api/ping") => {
             ("200 OK", r#"{"status":"ok","app":"cremeplay","version":"1.2.0","engine":"rune"}"#.to_string())
         }
@@ -518,6 +548,22 @@ fn apply_action(s: &mut AppState, action: AgentAction) -> String {
         AgentAction::PlayTrack { track } => {
             s.play_track(track);
             r#"{"status":"ok","action":"play_track"}"#.to_string()
+        }
+        AgentAction::ToggleSidebar => {
+            s.toggle_sidebar();
+            format!(r#"{{"status":"ok","action":"toggle_sidebar","collapsed":{}}}"#, s.sidebar_collapsed)
+        }
+        AgentAction::SetCookies { cookies } => {
+            s.set_cookies(cookies.clone());
+            r#"{"status":"ok","action":"set_cookies"}"#.to_string()
+        }
+        AgentAction::StartOAuthLogin => {
+            s.start_oauth_login();
+            r#"{"status":"ok","action":"start_oauth_login"}"#.to_string()
+        }
+        AgentAction::CancelOAuthLogin => {
+            s.cancel_oauth_login();
+            r#"{"status":"ok","action":"cancel_oauth_login"}"#.to_string()
         }
         AgentAction::Theme { name } => {
             s.set_theme(&name);

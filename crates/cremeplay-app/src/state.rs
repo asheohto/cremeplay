@@ -1,6 +1,9 @@
 use crate::theme::Theme;
 use cremeplay_core::{
-    innertube::{AccountProfile, ArtistDetail, HomeSection, InnertubeClient, PlaylistDetail, SearchResultPayload, SidebarPlaylist, TrackItem},
+    innertube::{
+        AccountProfile, ArtistDetail, HomeSection, InnertubeClient, OAuthCodeInfo, OauthDeviceCode,
+        PlaylistDetail, SearchResultPayload, SidebarPlaylist, TrackItem,
+    },
     lrclib::{LrclibClient, LyricsPayload},
     AudioPlayer, ConfigManager, CustomPlaylist, DiscordManager, SponsorBlockClient, TunaManager,
 };
@@ -64,6 +67,7 @@ pub struct AppState {
     pub current_artist: Option<ArtistDetail>,
     pub is_loading_artist: bool,
     pub nav_history: Vec<ActiveView>,
+    pub sidebar_collapsed: bool,
 
     // Player State
     pub current_track: Option<TrackItem>,
@@ -111,6 +115,11 @@ pub struct AppState {
     pub custom_playlists: Vec<CustomPlaylist>,
     pub account: Option<AccountProfile>,
 
+    pub oauth_code_info: Option<OAuthCodeInfo>,
+    pub is_polling_oauth: bool,
+    pub oauth_status_msg: Option<String>,
+    pub oauth_copied: bool,
+
     // Thread-safe async buffers
     pub pending_home_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
     pub pending_explore_feed: Arc<Mutex<Option<Vec<HomeSection>>>>,
@@ -123,6 +132,10 @@ pub struct AppState {
     pub pending_artist_detail: Arc<Mutex<Option<ArtistDetail>>>,
     pub pending_account: Arc<Mutex<Option<AccountProfile>>>,
     pub pending_radio_queue: Arc<Mutex<Option<Vec<TrackItem>>>>,
+    pub pending_oauth_code: Arc<Mutex<Option<(OAuthCodeInfo, OauthDeviceCode)>>>,
+    pub pending_oauth_success: Arc<Mutex<Option<(AccountProfile, String)>>>,
+    pub pending_oauth_error: Arc<Mutex<Option<String>>>,
+    pub oauth_cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     pub last_prefetched_id: Arc<Mutex<Option<String>>>,
     pub waker: Arc<Mutex<Option<Waker>>>,
 
@@ -205,6 +218,7 @@ impl AppState {
             current_artist: None,
             is_loading_artist: false,
             nav_history: Vec::new(),
+            sidebar_collapsed: false,
 
             current_track: None,
             is_playing: false,
@@ -256,6 +270,11 @@ impl AppState {
                 None
             },
 
+            oauth_code_info: None,
+            is_polling_oauth: false,
+            oauth_status_msg: None,
+            oauth_copied: false,
+
             pending_home_feed: Arc::new(Mutex::new(None)),
             pending_explore_feed: Arc::new(Mutex::new(None)),
             pending_search_results: Arc::new(Mutex::new(None)),
@@ -266,6 +285,10 @@ impl AppState {
             pending_artist_detail: Arc::new(Mutex::new(None)),
             pending_account: Arc::new(Mutex::new(None)),
             pending_radio_queue: Arc::new(Mutex::new(None)),
+            pending_oauth_code: Arc::new(Mutex::new(None)),
+            pending_oauth_success: Arc::new(Mutex::new(None)),
+            pending_oauth_error: Arc::new(Mutex::new(None)),
+            oauth_cancel_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             last_prefetched_id: Arc::new(Mutex::new(None)),
             waker: Arc::new(Mutex::new(None)),
 
@@ -1118,6 +1141,123 @@ impl AppState {
                 waker();
             }
         });
+    }
+
+    pub fn start_oauth_login(&mut self) {
+        self.is_polling_oauth = true;
+        self.oauth_status_msg = Some("Requesting Google login code...".to_string());
+        self.oauth_copied = false;
+        self.oauth_code_info = None;
+        self.oauth_cancel_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+
+        let innertube = self.innertube.clone();
+        let pending_code = self.pending_oauth_code.clone();
+        let pending_err = self.pending_oauth_error.clone();
+        let waker_arc = self.waker.clone();
+
+        tokio::spawn(async move {
+            match innertube.get_oauth_device_code().await {
+                Ok((info, code)) => {
+                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                        let _ = clipboard.set_text(&info.user_code);
+                    }
+                    #[cfg(target_os = "windows")]
+                    let _ = std::process::Command::new("cmd")
+                        .args(["/C", "start", &info.verification_url])
+                        .spawn();
+
+                    *pending_code.lock().unwrap() = Some((info, code));
+                }
+                Err(e) => {
+                    *pending_err.lock().unwrap() = Some(format!("Failed to get device code: {}", e));
+                }
+            }
+            if let Some(waker) = waker_arc.lock().unwrap().as_ref() {
+                waker();
+            }
+        });
+    }
+
+    pub fn cancel_oauth_login(&mut self) {
+        self.is_polling_oauth = false;
+        self.oauth_code_info = None;
+        self.oauth_status_msg = None;
+        self.oauth_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn copy_oauth_code(&mut self) {
+        if let Some(info) = &self.oauth_code_info
+            && let Ok(mut clipboard) = arboard::Clipboard::new() {
+                let _ = clipboard.set_text(&info.user_code);
+                self.oauth_copied = true;
+        }
+    }
+
+    pub fn open_oauth_url(&self) {
+        let url = self
+            .oauth_code_info
+            .as_ref()
+            .map(|i| i.verification_url.as_str())
+            .unwrap_or("https://google.com/device");
+        #[cfg(target_os = "windows")]
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", url])
+            .spawn();
+    }
+
+    pub fn toggle_sidebar(&mut self) {
+        self.sidebar_collapsed = !self.sidebar_collapsed;
+    }
+
+    pub fn open_auth_in_browser(&self) {
+        let login_url = "https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F";
+        #[cfg(target_os = "windows")]
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", login_url])
+            .spawn();
+    }
+
+    pub fn launch_auth_flow(&mut self) {
+        let candidate_paths = [
+            std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("cremeplay-auth.exe"))),
+            Some(std::path::PathBuf::from("cremeplay-auth.exe")),
+            Some(std::path::PathBuf::from("target/release/cremeplay-auth.exe")),
+            Some(std::path::PathBuf::from("target/debug/cremeplay-auth.exe")),
+            Some(std::path::PathBuf::from("crates/cremeplay-auth/target/release/cremeplay-auth.exe")),
+            Some(std::path::PathBuf::from("src-tauri/target/release/cremeplay.exe")),
+        ];
+
+        let mut launched = false;
+        for candidate in candidate_paths.into_iter().flatten() {
+            if candidate.exists() {
+                let mut cmd = std::process::Command::new(&candidate);
+                if candidate.to_string_lossy().contains("src-tauri") {
+                    cmd.arg("--auth");
+                }
+                if cmd.spawn().is_ok() {
+                    launched = true;
+                    log::info!("[Auth] Launched auth helper: {:?}", candidate);
+                    break;
+                }
+            }
+        }
+
+        if !launched {
+            log::info!("[Auth] Auth helper binary not found, opening sign-in in browser");
+            self.open_auth_in_browser();
+            self.show_settings = true;
+            self.settings_tab = SettingsTab::Account;
+        }
+    }
+
+    pub fn paste_cookies_from_clipboard(&mut self) {
+        if let Ok(mut clipboard) = arboard::Clipboard::new()
+            && let Ok(text) = clipboard.get_text() {
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    self.set_cookies(trimmed.to_string());
+                }
+        }
     }
 }
 

@@ -1,5 +1,17 @@
 use rune::Icon;
 
+pub static MENU: Icon = Icon {
+    name: "cp-menu",
+    view: 24.0,
+    body: r#"<line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>"#,
+};
+
+pub static SIDEBAR_TOGGLE: Icon = Icon {
+    name: "cp-sidebar-toggle",
+    view: 24.0,
+    body: r#"<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" stroke-width="1.8"/>"#,
+};
+
 pub static NAV_BACK: Icon = Icon {
     name: "cp-nav-back",
     view: 24.0,

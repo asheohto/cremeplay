@@ -194,6 +194,7 @@ pub fn render(s: &AppState) -> El {
     let mut pl_grid = row()
         .key("lib-playlists-grid")
         .w_full()
+        .scroll_x()
         .gap(16.0);
 
     // "Create Playlist" card
@@ -289,14 +290,15 @@ pub fn render(s: &AppState) -> El {
         let card = col()
             .key(format!("lib-custom-pl-card-{}", idx))
             .w(160.0)
+            .min_w(0.0)
             .padding(8.0)
             .radius(16.0)
             .fill(t.panel)
             .border(1.0, t.border)
             .gap(6.0)
             .child(pl_thumb)
-            .child(text(&pl.title).font(typo::LABEL).color(t.heading))
-            .child(text(format!("{} songs", pl.tracks.len())).font(typo::CAPTION).color(t.muted))
+            .child(text(&pl.title).font(typo::LABEL).color(t.heading).max_lines(2).w_full())
+            .child(text(format!("{} songs", pl.tracks.len())).font(typo::CAPTION).color(t.muted).truncate().w_full())
             .on_press(move |s: &mut AppState| {
                 s.open_custom_playlist(&pl_id);
             });
@@ -316,14 +318,15 @@ pub fn render(s: &AppState) -> El {
         let card = col()
             .key(format!("lib-pl-card-{}", idx))
             .w(160.0)
+            .min_w(0.0)
             .padding(8.0)
             .radius(16.0)
             .fill(t.panel)
             .border(1.0, t.border)
             .gap(6.0)
             .child(pl_thumb)
-            .child(text(&pl.title).font(typo::LABEL).color(t.heading))
-            .child(text("Playlist").font(typo::CAPTION).color(t.muted))
+            .child(text(&pl.title).font(typo::LABEL).color(t.heading).max_lines(2).w_full())
+            .child(text("Playlist").font(typo::CAPTION).color(t.muted).truncate().w_full())
             .on_press(move |s: &mut AppState| {
                 s.load_playlist(&pl_id);
             });

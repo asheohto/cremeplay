@@ -6,6 +6,22 @@ use rune::{el, icon, row, text, El};
 pub fn render(s: &AppState) -> El {
     let t = &s.theme;
 
+    // 0. Sidebar Toggle button
+    let sidebar_toggle_btn = el()
+        .key("sidebar-toggle-btn")
+        .size(32.0, 32.0)
+        .radius(16.0)
+        .center()
+        .fill(if s.sidebar_collapsed { t.band } else { rune::Color::TRANSPARENT })
+        .child(
+            icon(&icons::SIDEBAR_TOGGLE, 18.0)
+                .color(if s.sidebar_collapsed { t.brand_text } else { t.heading }),
+        )
+        .help(if s.sidebar_collapsed { "Expand sidebar" } else { "Collapse sidebar" })
+        .on_press(|s: &mut AppState| {
+            s.toggle_sidebar();
+        });
+
     // 1. Back button (32x32 circle)
     let can_go_back = !s.nav_history.is_empty();
     let back_btn = el()
@@ -48,9 +64,10 @@ pub fn render(s: &AppState) -> El {
         });
 
     let left = row()
-        .w(220.0)
+        .w(250.0)
         .center_y()
-        .gap(12.0)
+        .gap(8.0)
+        .child(sidebar_toggle_btn)
         .child(back_btn)
         .child(logo);
 
@@ -186,8 +203,12 @@ pub fn render(s: &AppState) -> El {
             .color(t.brand_text),
         )
         .on_press(|s: &mut AppState| {
-            s.show_settings = true;
-            s.settings_tab = crate::state::SettingsTab::Account;
+            if s.account.is_some() {
+                s.show_settings = true;
+                s.settings_tab = crate::state::SettingsTab::Account;
+            } else {
+                s.launch_auth_flow();
+            }
         });
 
     let mut right = row()

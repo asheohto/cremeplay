@@ -57,6 +57,7 @@ pub fn render(s: &AppState) -> El {
         let mut cards_row = row()
             .key(format!("section-row-{}", s_idx))
             .w_full()
+            .scroll_x()
             .gap(16.0);
 
         for (t_idx, item) in section.items.iter().take(6).enumerate() {
@@ -76,11 +77,16 @@ pub fn render(s: &AppState) -> El {
 
             let card_title = text(&item.title)
                 .font(typo::LABEL)
-                .color(t.heading);
+                .color(t.heading)
+                .max_lines(2)
+                .w_full();
 
             let card_artist = text(&item.artist)
                 .font(typo::CAPTION)
-                .color(t.body);
+                .color(t.body)
+                .truncate()
+                .grow(1.0)
+                .min_w(0.0);
 
             let track_add_clone = item.clone();
             let add_btn = el()
@@ -98,7 +104,7 @@ pub fn render(s: &AppState) -> El {
             let card_bottom = row()
                 .w_full()
                 .center_y()
-                .justify_between()
+                .gap(4.0)
                 .child(card_artist)
                 .child(add_btn);
 
@@ -107,6 +113,7 @@ pub fn render(s: &AppState) -> El {
             let card = col()
                 .key(format!("card-{}-{}", s_idx, t_idx))
                 .w(160.0)
+                .min_w(0.0)
                 .padding(8.0)
                 .radius(16.0)
                 .fill(t.panel)

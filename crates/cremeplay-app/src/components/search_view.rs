@@ -117,8 +117,16 @@ pub fn render(s: &AppState) -> El {
 
     // Top Result if available
     if let Some(top) = &results.top_result {
-        let top_title = text(&top.title).font(typo::TITLE).color(t.heading);
-        let top_sub = text(&top.subtitle).font(typo::CAPTION).color(t.muted);
+        let top_title = text(&top.title)
+            .font(typo::TITLE)
+            .color(t.heading)
+            .max_lines(2)
+            .w_full();
+        let top_sub = text(&top.subtitle)
+            .font(typo::CAPTION)
+            .color(t.muted)
+            .truncate()
+            .w_full();
         let badge = row()
             .h(22.0)
             .radius(4.0)
@@ -154,6 +162,8 @@ pub fn render(s: &AppState) -> El {
             .child(top_thumb)
             .child(
                 col()
+                    .grow(1.0)
+                    .min_w(0.0)
                     .gap(4.0)
                     .child(badge)
                     .child(top_title)
@@ -190,8 +200,8 @@ pub fn render(s: &AppState) -> El {
 
         let all_songs = results.songs.clone();
         for (idx, song) in results.songs.iter().take(12).enumerate() {
-            let song_title = text(&song.title).font(typo::LABEL).color(t.heading);
-            let song_artist = text(&song.artist).font(typo::CAPTION).color(t.muted);
+            let song_title = text(&song.title).font(typo::LABEL).color(t.heading).truncate().w_full();
+            let song_artist = text(&song.artist).font(typo::CAPTION).color(t.muted).truncate().w_full();
             let song_dur = text(&song.duration_text).font(typo::MONO_TIMER).color(t.muted);
 
             let song_thumb = if let Some(img) = s.get_image(&song.artwork_url) {
@@ -242,10 +252,14 @@ pub fn render(s: &AppState) -> El {
                     row()
                         .center_y()
                         .gap(14.0)
+                        .grow(1.0)
+                        .min_w(0.0)
                         .child(song_thumb)
                         .child(
                             col()
                                 .gap(2.0)
+                                .grow(1.0)
+                                .min_w(0.0)
                                 .child(song_title)
                                 .child(song_artist),
                         ),
@@ -271,7 +285,7 @@ pub fn render(s: &AppState) -> El {
     // Albums Shelf
     if !results.albums.is_empty() {
         let albums_header = text("Albums").font(typo::TITLE).color(t.heading);
-        let mut albums_row = row().w_full().gap(16.0);
+        let mut albums_row = row().w_full().scroll_x().gap(16.0);
 
         for (idx, album) in results.albums.iter().take(6).enumerate() {
             let thumb = if let Some(img) = s.get_image(&album.artwork_url) {
@@ -292,14 +306,15 @@ pub fn render(s: &AppState) -> El {
             let card = col()
                 .key(format!("search-album-{}", idx))
                 .w(144.0)
+                .min_w(0.0)
                 .padding(8.0)
                 .radius(12.0)
                 .fill(t.panel)
                 .border(1.0, t.border)
                 .gap(6.0)
                 .child(thumb)
-                .child(text(&album.title).font(typo::LABEL).color(t.heading))
-                .child(text(&album.subtitle).font(typo::CAPTION).color(t.muted))
+                .child(text(&album.title).font(typo::LABEL).color(t.heading).max_lines(2).w_full())
+                .child(text(&album.subtitle).font(typo::CAPTION).color(t.muted).truncate().w_full())
                 .on_press(move |s: &mut AppState| {
                     if !browse_id.is_empty() {
                         s.load_playlist(&browse_id);
@@ -320,7 +335,7 @@ pub fn render(s: &AppState) -> El {
     // Featured Playlists Shelf
     if !results.playlists.is_empty() {
         let pl_header = text("Featured Playlists").font(typo::TITLE).color(t.heading);
-        let mut pl_row = row().w_full().gap(16.0);
+        let mut pl_row = row().w_full().scroll_x().gap(16.0);
 
         for (idx, pl) in results.playlists.iter().take(6).enumerate() {
             let thumb = if let Some(img) = s.get_image(&pl.artwork_url) {
@@ -341,14 +356,15 @@ pub fn render(s: &AppState) -> El {
             let card = col()
                 .key(format!("search-pl-{}", idx))
                 .w(144.0)
+                .min_w(0.0)
                 .padding(8.0)
                 .radius(12.0)
                 .fill(t.panel)
                 .border(1.0, t.border)
                 .gap(6.0)
                 .child(thumb)
-                .child(text(&pl.title).font(typo::LABEL).color(t.heading))
-                .child(text(&pl.subtitle).font(typo::CAPTION).color(t.muted))
+                .child(text(&pl.title).font(typo::LABEL).color(t.heading).max_lines(2).w_full())
+                .child(text(&pl.subtitle).font(typo::CAPTION).color(t.muted).truncate().w_full())
                 .on_press(move |s: &mut AppState| {
                     if !browse_id.is_empty() {
                         s.load_playlist(&browse_id);
@@ -369,7 +385,7 @@ pub fn render(s: &AppState) -> El {
     // Artists Shelf
     if !results.artists.is_empty() {
         let artists_header = text("Artists").font(typo::TITLE).color(t.heading);
-        let mut artists_row = row().w_full().gap(16.0);
+        let mut artists_row = row().w_full().scroll_x().gap(16.0);
 
         for (idx, artist) in results.artists.iter().take(6).enumerate() {
             let thumb = if let Some(img) = s.get_image(&artist.artwork_url) {
@@ -391,12 +407,13 @@ pub fn render(s: &AppState) -> El {
             let card = col()
                 .key(format!("search-artist-{}", idx))
                 .w(120.0)
+                .min_w(0.0)
                 .padding(8.0)
                 .radius(12.0)
                 .center()
                 .gap(8.0)
                 .child(thumb)
-                .child(text(&artist.title).font(typo::LABEL).color(t.heading))
+                .child(text(&artist.title).font(typo::LABEL).color(t.heading).truncate().w_full())
                 .child(text("Artist").font(typo::CAPTION).color(t.muted))
                 .on_press(move |s: &mut AppState| {
                     if !browse_id.is_empty() {

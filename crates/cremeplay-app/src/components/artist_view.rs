@@ -224,14 +224,15 @@ pub fn render(s: &AppState) -> El {
             let card = col()
                 .key(format!("art-sec-{}-{}", sec_idx, item_idx))
                 .w(144.0)
+                .min_w(0.0)
                 .padding(8.0)
                 .radius(12.0)
                 .fill(t.panel)
                 .border(1.0, t.border)
                 .gap(6.0)
                 .child(thumb)
-                .child(text(&item.title).font(typo::LABEL).color(t.heading))
-                .child(text(&item.subtitle).font(typo::CAPTION).color(t.muted))
+                .child(text(&item.title).font(typo::LABEL).color(t.heading).max_lines(2).w_full())
+                .child(text(&item.subtitle).font(typo::CAPTION).color(t.muted).truncate().w_full())
                 .on_press(move |s: &mut AppState| {
                     if !browse_id.is_empty() {
                         s.load_playlist(&browse_id);

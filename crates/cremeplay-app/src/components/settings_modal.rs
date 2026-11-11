@@ -240,8 +240,144 @@ pub fn render(s: &AppState) -> El {
                     )
                     .child(divider())
                     .child(signout_btn)
+            } else if s.is_polling_oauth {
+                // OAuth Device Login in progress
+                let code_str = s
+                    .oauth_code_info
+                    .as_ref()
+                    .map(|i| i.user_code.clone())
+                    .unwrap_or_else(|| "Loading…".to_string());
+
+                let code_display = row()
+                    .w_full()
+                    .h(56.0)
+                    .radius(12.0)
+                    .fill(t.surface)
+                    .border(1.0, t.border)
+                    .center()
+                    .child(
+                        text(code_str)
+                            .font(typo::HERO)
+                            .color(t.brand_text),
+                    );
+
+                let copy_label = if s.oauth_copied { "✓ Code Copied" } else { "Copy Code" };
+                let copy_btn = row()
+                    .key("btn-oauth-copy")
+                    .h(36.0)
+                    .px(16.0)
+                    .radius(18.0)
+                    .fill(if s.oauth_copied { t.brand } else { t.hover })
+                    .border(1.0, t.border)
+                    .center()
+                    .child(text(copy_label).font(typo::LABEL).color(if s.oauth_copied { t.brand_text } else { t.heading }))
+                    .on_press(|s: &mut AppState| {
+                        s.copy_oauth_code();
+                    });
+
+                let browser_btn = row()
+                    .key("btn-oauth-browser")
+                    .h(36.0)
+                    .px(16.0)
+                    .radius(18.0)
+                    .fill(t.hover)
+                    .border(1.0, t.border)
+                    .center()
+                    .child(text("Open Google Login").font(typo::LABEL).color(t.heading))
+                    .on_press(|s: &mut AppState| {
+                        s.open_oauth_url();
+                    });
+
+                let cancel_btn = row()
+                    .key("btn-oauth-cancel")
+                    .h(36.0)
+                    .px(16.0)
+                    .radius(18.0)
+                    .fill(rune::Color::TRANSPARENT)
+                    .border(1.0, t.border)
+                    .center()
+                    .child(text("Cancel").font(typo::LABEL).color(t.muted))
+                    .on_press(|s: &mut AppState| {
+                        s.cancel_oauth_login();
+                    });
+
+                let status_text = s
+                    .oauth_status_msg
+                    .as_deref()
+                    .unwrap_or("Waiting for you to authorize in your browser…");
+
+                col()
+                    .w_full()
+                    .gap(16.0)
+                    .child(text("Google Account Sign-In").font(typo::TITLE).color(t.heading))
+                    .child(
+                        col()
+                            .w_full()
+                            .padding(18.0)
+                            .radius(16.0)
+                            .fill(t.panel)
+                            .border(1.0, t.border)
+                            .gap(14.0)
+                            .child(text("Enter this code in your browser:").font(typo::LABEL).color(t.heading))
+                            .child(code_display)
+                            .child(
+                                row()
+                                    .gap(10.0)
+                                    .center_y()
+                                    .child(copy_btn)
+                                    .child(browser_btn)
+                                    .child(cancel_btn),
+                            )
+                            .child(
+                                text(status_text)
+                                    .font(typo::CAPTION)
+                                    .color(t.brand),
+                            ),
+                    )
             } else {
-                // Not logged in view
+                // Not logged in view: 1-Click Google Sign-In + Clipboard Sync + Cookie fallback
+                let google_signin_btn = row()
+                    .key("btn-google-device-login")
+                    .w_full()
+                    .h(48.0)
+                    .radius(24.0)
+                    .fill(t.brand)
+                    .center()
+                    .gap(10.0)
+                    .child(icon(&icons::EXPLORE, 20.0).color(t.brand_text))
+                    .child(text("✨ Sign In with Google (1-Click Popup)").font(typo::LABEL).color(t.brand_text))
+                    .on_press(|s: &mut AppState| {
+                        s.launch_auth_flow();
+                    });
+
+                let browser_btn = row()
+                    .key("btn-open-browser-auth")
+                    .h(38.0)
+                    .px(16.0)
+                    .radius(19.0)
+                    .fill(t.hover)
+                    .border(1.0, t.border)
+                    .center()
+                    .gap(8.0)
+                    .child(text("Open in Browser").font(typo::LABEL).color(t.heading))
+                    .on_press(|s: &mut AppState| {
+                        s.open_auth_in_browser();
+                    });
+
+                let paste_btn = row()
+                    .key("btn-paste-clipboard-auth")
+                    .h(38.0)
+                    .px(16.0)
+                    .radius(19.0)
+                    .fill(t.hover)
+                    .border(1.0, t.border)
+                    .center()
+                    .gap(8.0)
+                    .child(text("Paste from Clipboard").font(typo::LABEL).color(t.heading))
+                    .on_press(|s: &mut AppState| {
+                        s.paste_cookies_from_clipboard();
+                    });
+
                 let cookie_input = rune::text_input(&s.auth_cookie_edit, typo::CAPTION)
                     .key("cookie-input")
                     .single_line()
@@ -251,7 +387,7 @@ pub fn render(s: &AppState) -> El {
                     .border(1.0, t.border)
                     .fill(t.surface)
                     .px(12.0)
-                    .placeholder("Paste SAPISID or cookie header here…", t.muted)
+                    .placeholder("Or paste SAPISID or cookie header here…", t.muted)
                     .on_edit(|s: &mut AppState| &mut s.auth_cookie_edit)
                     .on_submit(|s: &mut AppState, _| {
                         s.submit_cookies();
@@ -269,44 +405,38 @@ pub fn render(s: &AppState) -> El {
                         s.submit_cookies();
                     });
 
-                let browser_btn = row()
-                    .key("btn-open-browser-auth")
-                    .h(36.0)
-                    .px(16.0)
-                    .radius(18.0)
-                    .fill(t.hover)
-                    .border(1.0, t.border)
-                    .center()
-                    .child(text("Open in Browser").font(typo::LABEL).color(t.heading))
-                    .on_press(|_: &mut AppState| {
-                        #[cfg(target_os = "windows")]
-                        let _ = std::process::Command::new("cmd")
-                            .args(["/C", "start", "https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F"])
-                            .spawn();
-                    });
-
                 col()
                     .w_full()
-                    .gap(14.0)
+                    .gap(16.0)
                     .child(text("Sign in to YouTube Music").font(typo::TITLE).color(t.heading))
-                    .child(text("Paste your account cookies below or log in via browser:").font(typo::BODY).color(t.muted))
-                    .child(cookie_input)
                     .child(
-                        row()
-                            .gap(10.0)
-                            .child(connect_btn)
-                            .child(browser_btn),
+                        text("Sign in effortlessly to access your library, liked tracks, and personalized recommendations:")
+                            .font(typo::BODY)
+                            .color(t.muted),
                     )
+                    .child(google_signin_btn)
+                    .child(divider())
                     .child(
                         col()
-                            .gap(4.0)
-                            .pt(6.0)
-                            .child(text("How to connect:").font(typo::LABEL).color(t.heading))
-                            .child(text("1. Open music.youtube.com in your browser & sign in.").font(typo::CAPTION).color(t.muted))
-                            .child(text("2. Copy your Cookie header or SAPISID from DevTools or cookie extension.").font(typo::CAPTION).color(t.muted))
-                            .child(text("3. Paste here and click Connect. Playlists & recommendations sync instantly.").font(typo::CAPTION).color(t.muted)),
+                            .w_full()
+                            .gap(10.0)
+                            .child(text("Alternative: Browser Cookie Sync").font(typo::LABEL).color(t.heading))
+                            .child(
+                                text("If you are already logged into music.youtube.com in Chrome or Edge, click Paste from Clipboard:")
+                                    .font(typo::CAPTION)
+                                    .color(t.muted),
+                            )
+                            .child(
+                                row()
+                                    .gap(10.0)
+                                    .child(paste_btn)
+                                    .child(browser_btn),
+                            )
+                            .child(cookie_input)
+                            .child(connect_btn),
                     )
             }
+
         }
         SettingsTab::Lyrics => {
             let cfg = s.config_mgr.get();

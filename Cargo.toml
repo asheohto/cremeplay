@@ -2,6 +2,7 @@
 members = [
     "crates/cremeplay-core",
     "crates/cremeplay-app",
+    "crates/cremeplay-auth",
 ]
 exclude = ["src-tauri"]
 default-members = ["crates/cremeplay-app"]

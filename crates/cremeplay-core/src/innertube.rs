@@ -39,6 +39,17 @@ pub struct AccountProfile {
     pub is_logged_in: bool,
 }
 
+pub use rustypipe::client::OauthDeviceCode;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthCodeInfo {
+    pub user_code: String,
+    pub verification_url: String,
+    pub expires_in: u32,
+    pub interval: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistDetail {
@@ -209,6 +220,46 @@ impl InnertubeClient {
                 }
         }
         None
+    }
+
+    pub async fn get_oauth_device_code(&self) -> Result<(OAuthCodeInfo, rustypipe::client::OauthDeviceCode), String> {
+        let code = self.rustypipe.user_auth_get_code().await.map_err(|e| e.to_string())?;
+        let info = OAuthCodeInfo {
+            user_code: code.user_code.clone(),
+            verification_url: code.verification_url.clone(),
+            expires_in: code.expires_in,
+            interval: code.interval,
+        };
+        Ok((info, code))
+    }
+
+    pub async fn check_oauth_login(&self, code: &rustypipe::client::OauthDeviceCode) -> Result<bool, String> {
+        self.rustypipe.user_auth_login(code).await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_oauth_access_token(&self) -> Result<String, String> {
+        self.rustypipe.user_auth_access_token().await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_profile_from_token(&self, access_token: &str) -> Result<AccountProfile, String> {
+        let res = self.client
+            .get("https://www.googleapis.com/oauth2/v3/userinfo")
+            .header(AUTHORIZATION, format!("Bearer {}", access_token))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if res.status().is_success() {
+            let json: Value = res.json().await.map_err(|e| e.to_string())?;
+            let name = json.get("name").and_then(|v| v.as_str()).unwrap_or("YouTube User").to_string();
+            let avatar = json.get("picture").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            return Ok(AccountProfile {
+                name,
+                avatar_url: avatar,
+                is_logged_in: true,
+            });
+        }
+        Err(format!("Status: {}", res.status()))
     }
 
     pub async fn get_account_profile(&self) -> AccountProfile {
