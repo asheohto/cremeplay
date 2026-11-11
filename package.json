@@ -11,7 +11,9 @@
     "build:debug": "pnpm build:frontend && tauri build --debug",
     "rune": "cargo run --bin cremeplay",
     "rune:release": "cargo run --release --bin cremeplay",
-    "rune:build": "cargo build --release --bin cremeplay",
+    "rune:build": "cargo build --release --workspace",
+    "rune:auth": "cargo run --release --bin cremeplay-auth",
+    "rune:test": "cargo test --workspace && cargo clippy --workspace",
     "rune:snap": "cargo run --release --bin cremeplay -- --snap snap.png --at 0.5",
     "rune:tree": "cargo run --release --bin cremeplay -- --tree tree.json"
   },
