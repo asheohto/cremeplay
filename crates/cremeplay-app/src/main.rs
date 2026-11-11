@@ -469,6 +469,7 @@ fn poll(s: &mut AppState, _: f64, tx: &mut Tx) -> bool {
         playback_speed: s.playback_speed,
         custom_playlists_count: s.custom_playlists.len(),
         show_playlist_picker: s.show_playlist_picker,
+        sidebar_collapsed: s.sidebar_collapsed,
     });
 
     // Wake 30 fps while playing for smooth seekbar, or 4 fps while paused for responsive updates

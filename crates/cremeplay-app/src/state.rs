@@ -218,7 +218,7 @@ impl AppState {
             current_artist: None,
             is_loading_artist: false,
             nav_history: Vec::new(),
-            sidebar_collapsed: false,
+            sidebar_collapsed: cfg.sidebar_collapsed,
 
             current_track: None,
             is_playing: false,
@@ -1207,6 +1207,9 @@ impl AppState {
 
     pub fn toggle_sidebar(&mut self) {
         self.sidebar_collapsed = !self.sidebar_collapsed;
+        let mut cfg = self.config_mgr.get();
+        cfg.sidebar_collapsed = self.sidebar_collapsed;
+        self.config_mgr.save(cfg);
     }
 
     pub fn open_auth_in_browser(&self) {

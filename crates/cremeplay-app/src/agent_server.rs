@@ -56,6 +56,7 @@ pub struct AppStatusDto {
     pub playback_speed: f32,
     pub custom_playlists_count: usize,
     pub show_playlist_picker: bool,
+    pub sidebar_collapsed: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -317,6 +318,7 @@ async fn handle_request(
                     playback_speed: s.playback_speed,
                     custom_playlists_count: s.custom_playlists.len(),
                     show_playlist_picker: s.show_playlist_picker,
+                    sidebar_collapsed: s.sidebar_collapsed,
                 };
                 let _ = tx.send(dto);
             });

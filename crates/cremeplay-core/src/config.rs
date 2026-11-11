@@ -64,6 +64,8 @@ pub struct AppConfig {
     pub dismissed_update: Option<String>,
     #[serde(default)]
     pub recent_searches: Vec<String>,
+    #[serde(default = "default_false")]
+    pub sidebar_collapsed: bool,
 }
 
 fn default_theme() -> String {
@@ -129,6 +131,7 @@ impl Default for AppConfig {
             check_updates: true,
             dismissed_update: None,
             recent_searches: Vec::new(),
+            sidebar_collapsed: false,
         }
     }
 }
