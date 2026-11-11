@@ -200,7 +200,7 @@ pub fn render(s: &AppState) -> El {
                 "Sign in"
             })
             .font(typo::LABEL)
-            .color(t.brand_text),
+            .color(t.on_brand),
         )
         .on_press(|s: &mut AppState| {
             if s.account.is_some() {

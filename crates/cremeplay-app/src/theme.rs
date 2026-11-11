@@ -17,6 +17,7 @@ pub struct Theme {
     pub muted: Color,
     pub border: Color,
     pub hover: Color,
+    pub on_brand: Color,
 }
 
 fn c(s: &str) -> Color {
@@ -63,6 +64,7 @@ impl Theme {
             b: (tint.b * 0.18).max(0.15),
             a: 1.0,
         };
+        self.on_brand = c("#FFFFFF");
         self
     }
 }
@@ -84,6 +86,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#79716B"),
             border: c("#E7E6E5"),
             hover: c_alpha("#1C1917", 0.06),
+            on_brand: c("#FFFFFF"),
         },
         // 1: Adaptive Dark (Modern Dark Mode)
         Theme {
@@ -100,6 +103,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#959CA8"),
             border: c_alpha("#FFFFFF", 0.15),
             hover: c_alpha("#FFFFFF", 0.10),
+            on_brand: c("#FFFFFF"),
         },
         // 2: Dark Olive
         Theme {
@@ -116,6 +120,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#A29B72"),
             border: c_alpha("#F2EAA7", 0.14),
             hover: c_alpha("#F2EAA7", 0.10),
+            on_brand: c("#232719"),
         },
         // 3: European Vintage (Cream & Wine)
         Theme {
@@ -132,6 +137,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#87626F"),
             border: c("#DED6BD"),
             hover: c_alpha("#602238", 0.09),
+            on_brand: c("#FFFFFF"),
         },
         // 4: Chinese Vintage (Vermilion & Rice Paper)
         Theme {
@@ -148,6 +154,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#9C7262"),
             border: c("#DEBC90"),
             hover: c_alpha("#BD433E", 0.09),
+            on_brand: c("#FFFFFF"),
         },
         // 5: Matcha Forest
         Theme {
@@ -164,6 +171,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#7E7269"),
             border: c("#DCD2BF"),
             hover: c_alpha("#54927D", 0.10),
+            on_brand: c("#FFFFFF"),
         },
         // 6: Spring Blossom
         Theme {
@@ -180,6 +188,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#AA7585"),
             border: c("#FCD0DC"),
             hover: c_alpha("#FC97B7", 0.10),
+            on_brand: c("#542836"),
         },
         // 7: Blueberry Berry
         Theme {
@@ -196,6 +205,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#8C7E8B"),
             border: c_alpha("#86A88E", 0.25),
             hover: c_alpha("#86A88E", 0.10),
+            on_brand: c("#241A20"),
         },
         // 8: Sapphire Heritage
         Theme {
@@ -212,6 +222,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#7D8799"),
             border: c_alpha("#4B5DC3", 0.30),
             hover: c_alpha("#4B5DC3", 0.12),
+            on_brand: c("#FFFFFF"),
         },
         // 9: Crimson Amber
         Theme {
@@ -228,6 +239,7 @@ pub fn all_themes() -> [Theme; 10] {
             muted: c("#8A4E55"),
             border: c("#E5D9BF"),
             hover: c_alpha("#B61524", 0.08),
+            on_brand: c("#FFFFFF"),
         },
     ]
 }

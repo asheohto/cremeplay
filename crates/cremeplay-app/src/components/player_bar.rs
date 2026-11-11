@@ -77,7 +77,7 @@ pub fn render(s: &AppState) -> El {
         .center()
         .child(
             icon(if s.is_playing { &icons::PAUSE } else { &icons::PLAY }, 26.0)
-                .color(t.brand_text),
+                .color(t.on_brand),
         )
         .on_press(|s: &mut AppState| {
             s.is_playing = s.player.toggle_playback();

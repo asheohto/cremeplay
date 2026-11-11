@@ -32,7 +32,7 @@ pub fn render(s: &AppState) -> El {
             .child(
                 text(label)
                     .font(typo::LABEL)
-                    .color(if is_active { t.brand_text } else { t.heading }),
+                    .color(if is_active { t.on_brand } else { t.heading }),
             )
             .on_press(move |s: &mut AppState| {
                 s.now_playing_tab = tab;
@@ -193,7 +193,7 @@ pub fn render(s: &AppState) -> El {
                     .child(
                         text(label)
                             .font(typo::CAPTION)
-                            .color(if is_cur { t.brand_text } else { t.heading }),
+                            .color(if is_cur { t.on_brand } else { t.heading }),
                     )
                     .on_press(move |s: &mut AppState| {
                         s.set_playback_speed(spd);
@@ -479,7 +479,7 @@ pub fn render(s: &AppState) -> El {
                     .radius(15.0)
                     .fill(t.brand)
                     .center()
-                    .child(text("Save & Apply").font(typo::LABEL).color(t.brand_text))
+                    .child(text("Save & Apply").font(typo::LABEL).color(t.on_brand))
                     .on_press(|s: &mut AppState| {
                         let text = s.custom_lyrics_edit.text.clone();
                         s.save_custom_lyrics(text);
