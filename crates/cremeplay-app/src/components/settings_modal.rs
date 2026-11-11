@@ -215,7 +215,7 @@ pub fn render(s: &AppState) -> El {
                         .radius(24.0)
                         .fill(t.brand)
                         .center()
-                        .child(icon(&icons::SETTINGS, 24.0).color(t.brand_text))
+                        .child(icon(&icons::SETTINGS, 24.0).color(t.on_brand))
                 };
 
                 let user_info = col()
@@ -277,7 +277,7 @@ pub fn render(s: &AppState) -> El {
                     .fill(if s.oauth_copied { t.brand } else { t.hover })
                     .border(1.0, t.border)
                     .center()
-                    .child(text(copy_label).font(typo::LABEL).color(if s.oauth_copied { t.brand_text } else { t.heading }))
+                    .child(text(copy_label).font(typo::LABEL).color(if s.oauth_copied { t.on_brand } else { t.heading }))
                     .on_press(|s: &mut AppState| {
                         s.copy_oauth_code();
                     });
@@ -351,8 +351,8 @@ pub fn render(s: &AppState) -> El {
                     .fill(t.brand)
                     .center()
                     .gap(10.0)
-                    .child(icon(&icons::EXPLORE, 20.0).color(t.brand_text))
-                    .child(text("✨ Sign In with Google (1-Click Popup)").font(typo::LABEL).color(t.brand_text))
+                    .child(icon(&icons::EXPLORE, 20.0).color(t.on_brand))
+                    .child(text("✨ Sign In with Google (1-Click Popup)").font(typo::LABEL).color(t.on_brand))
                     .on_press(|s: &mut AppState| {
                         s.launch_auth_flow();
                     });
@@ -407,7 +407,7 @@ pub fn render(s: &AppState) -> El {
                     .radius(18.0)
                     .fill(t.brand)
                     .center()
-                    .child(text("Connect").font(typo::LABEL).color(t.brand_text))
+                    .child(text("Connect").font(typo::LABEL).color(t.on_brand))
                     .on_press(|s: &mut AppState| {
                         s.submit_cookies();
                     });
@@ -772,7 +772,7 @@ pub fn render(s: &AppState) -> El {
                         .radius(16.0)
                         .fill(t.brand)
                         .center()
-                        .child(text(format!("Download v{}", info.latest_version)).font(typo::LABEL).color(t.brand_text))
+                        .child(text(format!("Download v{}", info.latest_version)).font(typo::LABEL).color(t.on_brand))
                         .on_press(|s: &mut AppState| {
                             s.open_update_url();
                         })

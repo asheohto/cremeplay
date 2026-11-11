@@ -73,8 +73,8 @@ pub fn render(s: &AppState) -> El {
         .fill(t.brand)
         .center_y()
         .gap(8.0)
-        .child(icon(&icons::PLAY, 18.0).color(t.brand_text))
-        .child(text("Play Top Songs").font(typo::LABEL).color(t.brand_text))
+        .child(icon(&icons::PLAY, 18.0).color(t.on_brand))
+        .child(text("Play Top Songs").font(typo::LABEL).color(t.on_brand))
         .on_press(move |s: &mut AppState| {
             if let Some(track) = first_track.clone() {
                 s.queue = top_songs_clone.clone();

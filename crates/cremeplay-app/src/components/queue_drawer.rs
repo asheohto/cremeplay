@@ -90,7 +90,7 @@ pub fn render(s: &AppState) -> El {
                             .radius(6.0)
                             .fill(t.brand)
                             .center()
-                            .child(icon(&icons::PLAY, 16.0).color(t.brand_text)),
+                            .child(icon(&icons::PLAY, 16.0).color(t.on_brand)),
                     )
                     .child(
                         col()

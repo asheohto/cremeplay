@@ -67,7 +67,7 @@ pub fn render(s: &AppState) -> El {
         .radius(18.0)
         .fill(t.brand)
         .center()
-        .child(text("Save").font(typo::LABEL).color(t.brand_text))
+        .child(text("Save").font(typo::LABEL).color(t.on_brand))
         .on_press(|s: &mut AppState| {
             if let Some(id) = s.rename_playlist_id.clone() {
                 let title = s.rename_playlist_edit.text.clone();

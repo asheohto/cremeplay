@@ -33,7 +33,7 @@ pub fn render(s: &AppState) -> El {
                     .radius(19.0)
                     .fill(t.brand)
                     .center()
-                    .child(text("Explore Trending").font(typo::LABEL).color(t.brand_text))
+                    .child(text("Explore Trending").font(typo::LABEL).color(t.on_brand))
                     .on_press(|s: &mut AppState| {
                         s.navigate_to(crate::state::ActiveView::Explore);
                     }),
