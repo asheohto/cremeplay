@@ -370,7 +370,7 @@ pub fn render(s: &AppState) -> El {
                     .child(
                         text(src)
                             .font(typo::CAPTION)
-                            .color(if is_current { t.brand_text } else { t.heading }),
+                            .color(if is_current { t.on_brand } else { t.heading }),
                     )
                     .on_press(move |s: &mut AppState| {
                         s.select_lyrics_source(&src_clone);
@@ -389,7 +389,7 @@ pub fn render(s: &AppState) -> El {
                 .child(
                     text("+ Custom LRC")
                         .font(typo::CAPTION)
-                        .color(if s.show_custom_lyrics_modal { t.brand_text } else { t.muted }),
+                        .color(if s.show_custom_lyrics_modal { t.on_brand } else { t.muted }),
                 )
                 .on_press(|s: &mut AppState| {
                     s.show_custom_lyrics_modal = !s.show_custom_lyrics_modal;
