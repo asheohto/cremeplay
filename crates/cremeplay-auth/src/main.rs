@@ -139,13 +139,28 @@ impl ApplicationHandler for AuthApp {
                             .send();
                     }
 
-                    // 2. Also save to local config.json as fallback
-                    if let Some(config_dir) = dirs::data_local_dir() {
-                        let cfg_path = config_dir.join("com.cremeplay.desktop").join("config.json");
-                        if let Ok(content) = std::fs::read_to_string(&cfg_path)
+                    // 2. Also save to local config.json as fallback for both Rune and Tauri
+                    let candidate_paths = [
+                        dirs::config_dir().map(|d| d.join("cremeplay").join("config.json")),
+                        dirs::data_local_dir().map(|d| d.join("com.cremeplay.desktop").join("config.json")),
+                    ];
+
+                    for path in candidate_paths.into_iter().flatten() {
+                        if let Some(parent) = path.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        if let Ok(content) = std::fs::read_to_string(&path)
                             && let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
-                                json["auth_cookies"] = serde_json::Value::String(cookie_str);
-                                let _ = std::fs::write(&cfg_path, json.to_string());
+                                json["auth_cookies"] = serde_json::Value::String(cookie_str.clone());
+                                json["authCookies"] = serde_json::Value::String(cookie_str.clone());
+                                let _ = std::fs::write(&path, json.to_string());
+                        } else {
+                            // If config file doesn't exist yet, seed it with auth_cookies
+                            let new_json = serde_json::json!({
+                                "auth_cookies": cookie_str,
+                                "authCookies": cookie_str,
+                            });
+                            let _ = std::fs::write(&path, new_json.to_string());
                         }
                     }
 
